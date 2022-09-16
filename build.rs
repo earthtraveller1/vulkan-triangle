@@ -8,6 +8,7 @@ fn main() {
 
     bindgen::Builder::default()
         .header("src/ffi/vulkan.h")
+        .prepend_enum_name(false)
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
         .generate()
         .expect("Unable to generate bindings for src/ffi/vulkan.h")
