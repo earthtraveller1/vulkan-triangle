@@ -9,6 +9,9 @@ pub struct Instance {
     raw_handle: VkInstance,
 }
 
+// Validation Layers
+const VALIDATION_LAYERS: [*const u8; 1] = [b"VK_LAYER_KHRONOS_validation\0".as_ptr()];
+
 // Public methods
 impl Instance {
     pub fn enumerate_extension_names() -> Vec<String> {
@@ -47,6 +50,7 @@ impl Instance {
         app_version_major: u32,
         app_version_minor: u32,
         app_version_patch: u32,
+        enable_validation: bool,
     ) -> Result<Instance, ()> {
         let application_name = application_name.to_owned() + "\0";
 
@@ -69,8 +73,16 @@ impl Instance {
             pNext: null(),
             flags: 0,
             pApplicationInfo: &application_info,
-            enabledLayerCount: 0,
-            ppEnabledLayerNames: null(),
+            enabledLayerCount: if enable_validation {
+                VALIDATION_LAYERS.len().try_into().unwrap()
+            } else {
+                0
+            },
+            ppEnabledLayerNames: if enable_validation {
+                VALIDATION_LAYERS.as_ptr() as *const *const i8
+            } else {
+                null()
+            },
             enabledExtensionCount: 0,
             ppEnabledExtensionNames: null(),
         };
