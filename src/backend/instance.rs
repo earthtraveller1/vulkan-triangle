@@ -1,6 +1,7 @@
 use super::ffi::vulkan::*;
 use std::{
     convert::TryInto,
+    ffi::CStr,
     ptr::{null, null_mut},
 };
 
@@ -32,15 +33,10 @@ impl Instance {
         extensions
             .iter()
             .map(|extension| {
-                String::from_utf8(
-                    extension
-                        .extensionName
-                        .to_vec()
-                        .iter()
-                        .map(|c| (*c) as u8)
-                        .collect(),
-                )
-                .unwrap_or("<UTF8 ENCODING ERROR>".to_string())
+                unsafe { CStr::from_ptr(&(extension.extensionName[0])) }
+                    .to_str()
+                    .unwrap_or("ERROR")
+                    .to_string()
             })
             .collect()
     }
