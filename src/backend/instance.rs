@@ -7,7 +7,7 @@ use std::{
 
 // A structure to represent a Vulkan instance.
 pub struct Instance {
-    raw_handle: VkInstance,
+    pub(super) raw_handle: VkInstance,
 }
 
 // Validation Layers
