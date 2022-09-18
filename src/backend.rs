@@ -2,6 +2,7 @@ pub mod ffi;
 
 pub mod debug_messenger;
 pub mod instance;
+pub mod surface;
 
 use std::{
     ffi::{c_void, CStr},
@@ -10,6 +11,7 @@ use std::{
 
 pub use debug_messenger::DebugMessenger;
 pub use instance::Instance;
+pub use surface::Surface;
 
 use ffi::vulkan::*;
 
