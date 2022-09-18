@@ -14,6 +14,8 @@ fn main() {
     instance
         .create_debug_messenger()
         .expect("[ERROR]: Failed to create the debug messenger!");
+        
+    let _surface = instance.create_window_surface(&window);
 
     window.show();
 
