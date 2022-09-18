@@ -1,12 +1,13 @@
 use super::super::Window;
 use super::ffi::vulkan::*;
+use super::PhysicalDevice;
+use super::Surface;
 use std::{
     convert::TryInto,
     ffi::{CStr, CString},
     os::raw::c_void,
     ptr::{null, null_mut},
 };
-use super::Surface;
 
 // A structure to represent a Vulkan instance.
 pub struct Instance {
@@ -122,14 +123,32 @@ impl Instance {
     pub fn create_debug_messenger(&self) -> Result<super::DebugMessenger, ()> {
         super::DebugMessenger::new(self)
     }
-    
+
     pub fn create_window_surface(&self, window: &Window) -> Surface {
         let mut surface = null_mut();
         window.create_window_surface(self.raw_handle, &mut surface);
         Surface {
             instance: &self,
-            raw_handle: surface
+            raw_handle: surface,
         }
+    }
+
+    pub fn enumerate_physical_devices(&self) -> Vec<PhysicalDevice> {
+        let mut device_count = 0;
+        unsafe { vkEnumeratePhysicalDevices(self.raw_handle, &mut device_count, null_mut()) };
+
+        let mut devices = Vec::with_capacity(device_count.try_into().unwrap());
+        unsafe {
+            vkEnumeratePhysicalDevices(self.raw_handle, &mut device_count, devices.as_mut_ptr());
+            devices.set_len(device_count.try_into().unwrap());
+        }
+
+        devices
+            .iter()
+            .map(|device| PhysicalDevice {
+                raw_handle: device.clone(),
+            })
+            .collect()
     }
 }
 
