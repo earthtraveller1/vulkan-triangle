@@ -6,6 +6,7 @@ use std::{
     os::raw::c_void,
     ptr::{null, null_mut},
 };
+use super::Surface;
 
 // A structure to represent a Vulkan instance.
 pub struct Instance {
@@ -120,6 +121,15 @@ impl Instance {
 
     pub fn create_debug_messenger(&self) -> Result<super::DebugMessenger, ()> {
         super::DebugMessenger::new(self)
+    }
+    
+    pub fn create_window_surface(&self, window: &Window) -> Surface {
+        let mut surface = null_mut();
+        window.create_window_surface(self.raw_handle, &mut surface);
+        Surface {
+            instance: &self,
+            raw_handle: surface
+        }
     }
 }
 
