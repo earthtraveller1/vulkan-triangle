@@ -11,7 +11,7 @@ fn main() {
     let instance = Instance::new("Vulkan Triangle", &window, 0, 1, 0, true)
         .expect("Failed to create the Vulkan instance.");
 
-    instance
+    let _debug_messenger = instance
         .create_debug_messenger()
         .expect("[ERROR]: Failed to create the debug messenger!");
 
