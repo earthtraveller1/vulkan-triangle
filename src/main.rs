@@ -5,5 +5,10 @@ fn main() {
         .iter()
         .for_each(|extension| println!("[INFO]: Found Vulkan Instance extension {}", extension));
 
-    Instance::new("Vulkan Triangle", 0, 1, 0, true).expect("Failed to create the Vulkan instance.");
+    let instance = Instance::new("Vulkan Triangle", 0, 1, 0, true)
+        .expect("Failed to create the Vulkan instance.");
+
+    instance
+        .create_debug_messenger()
+        .expect("[ERROR]: Failed to create the debug messenger!");
 }
