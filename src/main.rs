@@ -14,8 +14,18 @@ fn main() {
     instance
         .create_debug_messenger()
         .expect("[ERROR]: Failed to create the debug messenger!");
-        
+
     let _surface = instance.create_window_surface(&window);
+
+    instance
+        .enumerate_physical_devices()
+        .iter()
+        .for_each(|physical_device| {
+            println!(
+                "[INFO]: Found physical device {}",
+                physical_device.get_properties().name
+            )
+        });
 
     window.show();
 
