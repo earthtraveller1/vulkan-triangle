@@ -1,8 +1,10 @@
+use super::super::Window;
 use super::ffi::vulkan::*;
 use std::{
     convert::TryInto,
-    ffi::CStr,
-    ptr::{null, null_mut}, os::raw::c_void,
+    ffi::{CStr, CString},
+    os::raw::c_void,
+    ptr::{null, null_mut},
 };
 
 // A structure to represent a Vulkan instance.
@@ -43,6 +45,7 @@ impl Instance {
 
     pub fn new(
         application_name: &str,
+        application_window: &Window,
         app_version_major: u32,
         app_version_minor: u32,
         app_version_patch: u32,
@@ -63,7 +66,7 @@ impl Instance {
             engineVersion: 0,
             apiVersion: VK_MAKE_API_VERSION(0, 1, 2, 0),
         };
-        
+
         let debug_messenger_info = super::get_debug_messenger_create_info();
 
         let mut create_info = VkInstanceCreateInfo {
@@ -76,18 +79,30 @@ impl Instance {
             enabledExtensionCount: 0,
             ppEnabledExtensionNames: null(),
         };
-        
+
         let mut enabled_extensions = Vec::new();
-        
+
+        let window_extensions: Vec<CString> = application_window
+            .get_required_instance_extensions()
+            .unwrap()
+            .iter()
+            .map(|extension| CString::new(extension.clone()).unwrap())
+            .collect();
+
+        window_extensions
+            .iter()
+            .for_each(|extension| enabled_extensions.push(extension.as_ptr()));
+
         if enable_validation {
-            create_info.pNext = &debug_messenger_info as *const VkDebugUtilsMessengerCreateInfoEXT as *const c_void;
-            
+            create_info.pNext =
+                &debug_messenger_info as *const VkDebugUtilsMessengerCreateInfoEXT as *const c_void;
+
             create_info.enabledLayerCount = VALIDATION_LAYERS.len().try_into().unwrap();
             create_info.ppEnabledLayerNames = VALIDATION_LAYERS.as_ptr();
-            
+
             enabled_extensions.push(VK_EXT_DEBUG_UTILS_EXTENSION_NAME.as_ptr() as *const i8);
         }
-        
+
         if enabled_extensions.len() > 0 {
             create_info.enabledExtensionCount = enabled_extensions.len().try_into().unwrap();
             create_info.ppEnabledExtensionNames = enabled_extensions.as_ptr();
@@ -102,7 +117,7 @@ impl Instance {
             Err(())
         }
     }
-    
+
     pub fn create_debug_messenger(&self) -> Result<super::DebugMessenger, ()> {
         super::DebugMessenger::new(self)
     }

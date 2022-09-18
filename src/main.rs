@@ -8,7 +8,7 @@ fn main() {
         .iter()
         .for_each(|extension| println!("[INFO]: Found Vulkan Instance extension {}", extension));
 
-    let instance = Instance::new("Vulkan Triangle", 0, 1, 0, true)
+    let instance = Instance::new("Vulkan Triangle", &window, 0, 1, 0, true)
         .expect("Failed to create the Vulkan instance.");
 
     instance
