@@ -2,7 +2,7 @@ use super::ffi::vulkan::*;
 use std::{
     convert::TryInto,
     ffi::CStr,
-    ptr::{null, null_mut},
+    ptr::{null, null_mut}, os::raw::c_void,
 };
 
 // A structure to represent a Vulkan instance.
@@ -63,6 +63,8 @@ impl Instance {
             engineVersion: 0,
             apiVersion: VK_MAKE_API_VERSION(0, 1, 2, 0),
         };
+        
+        let debug_messenger_info = super::get_debug_messenger_create_info();
 
         let mut create_info = VkInstanceCreateInfo {
             sType: VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
@@ -75,9 +77,20 @@ impl Instance {
             ppEnabledExtensionNames: null(),
         };
         
+        let mut enabled_extensions = Vec::new();
+        
         if enable_validation {
+            create_info.pNext = &debug_messenger_info as *const VkDebugUtilsMessengerCreateInfoEXT as *const c_void;
+            
             create_info.enabledLayerCount = VALIDATION_LAYERS.len().try_into().unwrap();
             create_info.ppEnabledLayerNames = VALIDATION_LAYERS.as_ptr();
+            
+            enabled_extensions.push(VK_EXT_DEBUG_UTILS_EXTENSION_NAME.as_ptr() as *const i8);
+        }
+        
+        if enabled_extensions.len() > 0 {
+            create_info.enabledExtensionCount = enabled_extensions.len().try_into().unwrap();
+            create_info.ppEnabledExtensionNames = enabled_extensions.as_ptr();
         }
 
         let mut raw_handle = null_mut();
