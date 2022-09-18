@@ -3,6 +3,7 @@ pub mod ffi;
 pub mod debug_messenger;
 pub mod instance;
 pub mod surface;
+pub mod physical_device;
 
 use std::{
     ffi::{c_void, CStr},
@@ -12,6 +13,7 @@ use std::{
 pub use debug_messenger::DebugMessenger;
 pub use instance::Instance;
 pub use surface::Surface;
+pub use physical_device::PhysicalDevice;
 
 use ffi::vulkan::*;
 
