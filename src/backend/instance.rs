@@ -104,7 +104,7 @@ impl Instance {
     }
     
     pub fn create_debug_messenger(&self) -> Result<super::DebugMessenger, ()> {
-        super::DebugMessenger::new(self.raw_handle)
+        super::DebugMessenger::new(self)
     }
 }
 
