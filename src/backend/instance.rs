@@ -52,12 +52,12 @@ impl Instance {
         app_version_patch: u32,
         enable_validation: bool,
     ) -> Result<Instance, ()> {
-        let application_name = application_name.to_owned() + "\0";
+        let application_name = CString::new(application_name).unwrap();
 
         let application_info = VkApplicationInfo {
             sType: VK_STRUCTURE_TYPE_APPLICATION_INFO,
             pNext: null(),
-            pApplicationName: application_name.as_ptr() as *const i8,
+            pApplicationName: application_name.as_ptr(),
             applicationVersion: VK_MAKE_VERSION(
                 app_version_major,
                 app_version_minor,
