@@ -4,7 +4,7 @@ pub mod debug_messenger;
 pub mod instance;
 
 use std::{
-    ffi::c_void,
+    ffi::{c_void, CStr},
     ptr::{null, null_mut},
 };
 
@@ -16,10 +16,17 @@ use ffi::vulkan::*;
 unsafe extern "C" fn debug_callback(
     _message_severity: VkDebugUtilsMessageSeverityFlagBitsEXT,
     _message_type: VkDebugUtilsMessageTypeFlagsEXT,
-    _callback_data: *const VkDebugUtilsMessengerCallbackDataEXT,
+    callback_data: *const VkDebugUtilsMessengerCallbackDataEXT,
     _user_data: *mut c_void,
 ) -> VkBool32 {
-    0
+    println!(
+        "[VULKAN]: {}",
+        CStr::from_ptr((*callback_data).pMessage)
+            .to_str()
+            .unwrap_or("")
+    );
+    
+    VK_FALSE
 }
 
 fn get_debug_messenger_create_info() -> VkDebugUtilsMessengerCreateInfoEXT {
