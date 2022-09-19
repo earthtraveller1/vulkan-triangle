@@ -1,6 +1,7 @@
 pub mod ffi;
 
 pub mod debug_messenger;
+pub mod device;
 pub mod instance;
 pub mod surface;
 pub mod physical_device;
@@ -14,6 +15,7 @@ pub use debug_messenger::DebugMessenger;
 pub use instance::Instance;
 pub use surface::Surface;
 pub use physical_device::PhysicalDevice;
+pub use device::Device;
 
 use ffi::vulkan::*;
 
