@@ -97,6 +97,18 @@ unsafe fn create_instance(extensions: Vec<CString>) -> VkInstance {
     instance
 }
 
+unsafe fn create_debug_messenger(instance: VkInstance) -> VkDebugUtilsMessengerEXT {
+    let create_info = get_debug_messenger_create_info();
+    
+    let mut debug_messenger = std::ptr::null_mut();
+    let result = vk_create_debug_utils_messenger_ext(instance, &create_info, std::ptr::null(), &mut debug_messenger);
+    if result != VK_SUCCESS {
+        panic!("Failed to create the debug messenger. Error Code {}", result);
+    }
+    
+    debug_messenger
+}
+
 unsafe fn create_surface(instance: VkInstance, window: &glfw::Window) -> VkSurfaceKHR {
     let mut surface = std::ptr::null_mut();
     let result = window.create_window_surface(
@@ -123,6 +135,7 @@ fn main() {
                 })
                 .collect(),
         );
+        let debug_messenger = create_debug_messenger(instance);
 
         glfw.window_hint(glfw::WindowHint::Visible(false));
         glfw.window_hint(glfw::WindowHint::Resizable(false));
@@ -143,8 +156,9 @@ fn main() {
         while !window.should_close() {
             glfw.poll_events();
         }
-
+        
         vkDestroySurfaceKHR(instance, surface, std::ptr::null());
+        vk_destroy_debug_utils_messenger_ext(instance, debug_messenger, std::ptr::null());
         vkDestroyInstance(instance, std::ptr::null());
     }
 }
