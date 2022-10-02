@@ -1,4 +1,4 @@
-use std::ffi::CString;
+use std::ffi::{c_void, CString, CStr};
 
 use vulkan_triangle::vulkan::*;
 
@@ -6,26 +6,80 @@ const WINDOW_WIDTH: u32 = 1024;
 const WINDOW_HEIGHT: u32 = 768;
 const WINDOW_TITLE: &str = "Vulkan Triangle";
 
+const VALIDATION_LAYERS: [*const i8; 1] = [b"VK_LAYER_KHRONOS_validation\0".as_ptr() as *const i8];
+
+const ENABLE_VALIDATION: bool = true;
+
+unsafe extern "C" fn debug_messenger_callback(
+    _message_severity: VkDebugUtilsMessageSeverityFlagBitsEXT,
+    _message_types: VkDebugUtilsMessageTypeFlagsEXT,
+    callback_data: *const VkDebugUtilsMessengerCallbackDataEXT,
+    _user_data: *mut c_void,
+) -> VkBool32 {
+    println!("[VULKAN]: {}", CStr::from_ptr((*callback_data).pMessage).to_str().unwrap_or("<INVALID STRING OR SMTH>"));
+    
+    VK_FALSE
+}
+
+unsafe fn get_debug_messenger_create_info() -> VkDebugUtilsMessengerCreateInfoEXT {
+    VkDebugUtilsMessengerCreateInfoEXT {
+        sType: VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+        pNext: std::ptr::null(),
+        flags: 0,
+        messageSeverity: (VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+            | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+            | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
+            | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT)
+            .try_into()
+            .unwrap(),
+        messageType: (VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
+            | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
+            | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
+            .try_into()
+            .unwrap(),
+        pfnUserCallback: Some(debug_messenger_callback),
+        pUserData: std::ptr::null_mut(),
+    }
+}
+
 unsafe fn create_instance(extensions: Vec<CString>) -> VkInstance {
     let application_info = VkApplicationInfo {
         sType: VK_STRUCTURE_TYPE_APPLICATION_INFO,
         pNext: std::ptr::null(),
-        pApplicationName: b"Vulkan Triangle".as_ptr() as *const i8,
+        pApplicationName: b"Vulkan Triangle\0".as_ptr() as *const i8,
         applicationVersion: 0,
         pEngineName: std::ptr::null(),
         engineVersion: 0,
         apiVersion: VK_MAKE_API_VERSION(0, 1, 2, 0),
     };
 
-    let extensions: Vec<*const i8> = extensions.iter().map(|e| e.as_ptr()).collect();
+    let mut extensions: Vec<*const i8> = extensions.iter().map(|e| e.as_ptr()).collect();
+    
+    if ENABLE_VALIDATION {
+        extensions.push(VK_EXT_DEBUG_UTILS_EXTENSION_NAME.as_ptr() as *const i8);
+    }
+
+    let messenger_create_info = get_debug_messenger_create_info();
 
     let create_info = VkInstanceCreateInfo {
         sType: VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        pNext: std::ptr::null(),
+        pNext: if ENABLE_VALIDATION {
+            &messenger_create_info as *const VkDebugUtilsMessengerCreateInfoEXT as *const c_void
+        } else {
+            std::ptr::null()
+        },
         flags: 0,
         pApplicationInfo: &application_info,
-        enabledLayerCount: 0,
-        ppEnabledLayerNames: std::ptr::null(),
+        enabledLayerCount: if ENABLE_VALIDATION {
+            VALIDATION_LAYERS.len().try_into().unwrap()
+        } else {
+            0
+        },
+        ppEnabledLayerNames: if ENABLE_VALIDATION {
+            VALIDATION_LAYERS.as_ptr()
+        } else {
+            std::ptr::null()
+        },
         enabledExtensionCount: extensions.len().try_into().unwrap(),
         ppEnabledExtensionNames: extensions.as_ptr(),
     };
@@ -45,7 +99,11 @@ unsafe fn create_instance(extensions: Vec<CString>) -> VkInstance {
 
 unsafe fn create_surface(instance: VkInstance, window: &glfw::Window) -> VkSurfaceKHR {
     let mut surface = std::ptr::null_mut();
-    let result = window.create_window_surface(instance as usize, std::ptr::null(), std::mem::transmute(&mut surface));
+    let result = window.create_window_surface(
+        instance as usize,
+        std::ptr::null(),
+        std::mem::transmute(&mut surface),
+    );
     if result != VK_SUCCESS.try_into().unwrap() {
         panic!("Failed to create the window surface.");
     }
@@ -78,14 +136,14 @@ fn main() {
                 glfw::WindowMode::Windowed,
             )
             .expect("Failed to create the GLFW window.");
-        
+
         let surface = create_surface(instance, &window);
 
         window.show();
         while !window.should_close() {
             glfw.poll_events();
         }
-        
+
         vkDestroySurfaceKHR(instance, surface, std::ptr::null());
         vkDestroyInstance(instance, std::ptr::null());
     }
