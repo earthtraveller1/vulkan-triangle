@@ -1,5 +1,7 @@
 use std::{env, path::PathBuf};
 
+const FFI_HEADER: &str = "src/ffi.h";
+
 fn main() {
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
 
@@ -10,7 +12,7 @@ fn main() {
         let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
 
         bindgen::Builder::default()
-            .header("src/backend/ffi/vulkan.h")
+            .header(FFI_HEADER)
             .prepend_enum_name(false)
             .parse_callbacks(Box::new(bindgen::CargoCallbacks))
             .generate()
@@ -27,7 +29,7 @@ fn main() {
             let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
 
             bindgen::Builder::default()
-                .header("src/backend/ffi/vulkan.h")
+                .header(FFI_HEADER)
                 .prepend_enum_name(false)
                 .clang_arg(format!("-I{}/Include", vulkan_sdk_path))
                 .parse_callbacks(Box::new(bindgen::CargoCallbacks))
@@ -59,7 +61,7 @@ fn main() {
             let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
 
             bindgen::Builder::default()
-                .header("src/backend/ffi/vulkan.h")
+                .header(FFI_HEADER)
                 .prepend_enum_name(false)
                 .clang_arg(format!("-I{}/Include", sdk.to_str().unwrap()))
                 .parse_callbacks(Box::new(bindgen::CargoCallbacks))
