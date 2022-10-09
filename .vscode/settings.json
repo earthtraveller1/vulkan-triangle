@@ -1,6 +1,0 @@
-{
-    "clang-tidy.compilerArgs": [
-        "-Ideps/fmt/include",
-        "-Ideps/glfw/include"
-    ]
-}
