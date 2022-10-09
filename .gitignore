@@ -445,3 +445,5 @@ _deps
 .cmake/
 *.vcxproj*
 *.sln
+
+/build/
