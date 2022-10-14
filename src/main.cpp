@@ -21,37 +21,35 @@ void glfw_error_callback(int p_error_code, const char *p_message)
 
 VkInstance create_instance()
 {
-    VkApplicationInfo application_info
-    {
+    VkApplicationInfo application_info{
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pNext = nullptr,
         .pApplicationName = "Vulkan Triangle",
         .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
         .pEngineName = nullptr,
         .engineVersion = 0,
-        .apiVersion = VK_API_VERSION_1_2
-    };
-    
-    VkInstanceCreateInfo create_info 
-    {
-        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .pApplicationInfo = &application_info,
-        .enabledLayerCount = 0,
-        .ppEnabledLayerNames = nullptr,
-        .enabledExtensionCount = 0,
-        .ppEnabledExtensionNames = nullptr
-    };
-    
+        .apiVersion = VK_API_VERSION_1_2};
+
+    VkInstanceCreateInfo create_info{.sType =
+                                         VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+                                     .pNext = nullptr,
+                                     .flags = 0,
+                                     .pApplicationInfo = &application_info,
+                                     .enabledLayerCount = 0,
+                                     .ppEnabledLayerNames = nullptr,
+                                     .enabledExtensionCount = 0,
+                                     .ppEnabledExtensionNames = nullptr};
+
     VkInstance instance;
     VkResult result = vkCreateInstance(&create_info, nullptr, &instance);
     if (result != VK_SUCCESS)
     {
-        fmt::print("[FATAL ERROR]: Failed to create the Vulkan instance. Vulkan Error {}", result);
+        fmt::print("[FATAL ERROR]: Failed to create the Vulkan instance. "
+                   "Vulkan Error {}",
+                   result);
         std::exit(EXIT_FAILURE);
     }
-    
+
     return instance;
 }
 
@@ -63,7 +61,7 @@ int real_main()
         fmt::print("[FATAL ERROR]: Failed to initialize GLFW.\n");
         return EXIT_FAILURE;
     }
-    
+
     VkInstance instance = create_instance();
 
     glfwSetErrorCallback(glfw_error_callback);
@@ -87,7 +85,7 @@ int real_main()
     {
         glfwPollEvents();
     }
-    
+
     vkDestroyInstance(instance, nullptr);
 
     glfwTerminate();
