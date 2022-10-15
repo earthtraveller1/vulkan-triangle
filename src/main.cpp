@@ -9,6 +9,9 @@
 #include <cstdlib>
 
 #include <vector>
+#include <tuple>
+#include <set>
+#include <tuple>
 
 #define LOAD_VK_FUNCTION(function, instance)                                   \
     const auto hello56721_##function = reinterpret_cast<PFN_##function>(       \
@@ -142,6 +145,24 @@ VkSurfaceKHR create_surface(VkInstance p_instance, GLFWwindow* p_window)
     }
     
     return surface;
+}
+
+VkPhysicalDevice pick_physical_device(VkInstance p_instance)
+{
+    uint32_t physical_device_count;
+    vkEnumeratePhysicalDevices(p_instance, &physical_device_count, nullptr);
+    
+    std::vector<VkPhysicalDevice> physical_devices(physical_device_count);
+    vkEnumeratePhysicalDevices(p_instance, &physical_device_count, physical_devices.data());
+    
+    std::vector<VkPhysicalDevice> usable_physical_devices;
+    for (const auto& physical_device: physical_devices)
+    {
+        
+        
+        std::vector<VkQueueFamilyProperties> queue_families;
+        
+    }
 }
 
 // The actual main function
