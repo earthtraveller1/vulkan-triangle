@@ -153,7 +153,7 @@ int real_main()
         return EXIT_FAILURE;
     }
 
-    VkInstance instance = create_instance();
+    const VkInstance instance = create_instance();
 
     VkDebugUtilsMessengerEXT debug_messenger;
     if (ENABLE_VALIDATION)
@@ -176,7 +176,7 @@ int real_main()
         return EXIT_FAILURE;
     }
     
-    VkSurfaceKHR surface = create_surface(instance, window);
+    const VkSurfaceKHR surface = create_surface(instance, window);
 
     glfwShowWindow(window);
 
