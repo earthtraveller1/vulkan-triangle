@@ -1,6 +1,6 @@
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <fmt/format.h>
-#include <vulkan/vulkan.h>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -131,6 +131,19 @@ VkDebugUtilsMessengerEXT create_debug_messenger(VkInstance p_instance)
     return debug_messenger;
 }
 
+VkSurfaceKHR create_surface(VkInstance p_instance, GLFWwindow* p_window)
+{
+    VkSurfaceKHR surface;
+    VkResult result = glfwCreateWindowSurface(p_instance, p_window, nullptr, &surface);
+    if (result != VK_SUCCESS)
+    {
+        fmt::print("[FATAL ERROR]: Failed to create the window surface. Vulkan error {}", result);
+        std::exit(EXIT_FAILURE);
+    }
+    
+    return surface;
+}
+
 // The actual main function
 int real_main()
 {
@@ -162,6 +175,8 @@ int real_main()
         glfwTerminate();
         return EXIT_FAILURE;
     }
+    
+    VkSurfaceKHR surface = create_surface(instance, window);
 
     glfwShowWindow(window);
 
@@ -169,6 +184,8 @@ int real_main()
     {
         glfwPollEvents();
     }
+    
+    vkDestroySurfaceKHR(instance, surface, nullptr);
 
     if (ENABLE_VALIDATION)
     {
