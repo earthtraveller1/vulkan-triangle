@@ -8,10 +8,10 @@
 
 #include <cstdlib>
 
-#include <vector>
-#include <tuple>
+#include <optional>
 #include <set>
 #include <tuple>
+#include <vector>
 
 #define LOAD_VK_FUNCTION(function, instance)                                   \
     const auto hello56721_##function = reinterpret_cast<PFN_##function>(       \
@@ -68,9 +68,9 @@ VkInstance create_instance()
     const char **glfw_vulkan_extensions =
         glfwGetRequiredInstanceExtensions(&glfw_vulkan_extension_count);
 
-    std::vector<const char *> enabled_extensions(glfw_vulkan_extensions,
-                                             glfw_vulkan_extensions +
-                                                 glfw_vulkan_extension_count);
+    std::vector<const char *> enabled_extensions(
+        glfw_vulkan_extensions,
+        glfw_vulkan_extensions + glfw_vulkan_extension_count);
     if (ENABLE_VALIDATION)
     {
         enabled_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -81,9 +81,9 @@ VkInstance create_instance()
     {
         enabled_layers.push_back("VK_LAYER_KHRONOS_validation");
     }
-    
+
     fmt::print("[INFO]: Enabling the following extensions:\n");
-    for (const auto& extension: enabled_extensions)
+    for (const auto &extension : enabled_extensions)
     {
         fmt::print("\t{}\n", extension);
     }
@@ -134,35 +134,104 @@ VkDebugUtilsMessengerEXT create_debug_messenger(VkInstance p_instance)
     return debug_messenger;
 }
 
-VkSurfaceKHR create_surface(VkInstance p_instance, GLFWwindow* p_window)
+VkSurfaceKHR create_surface(VkInstance p_instance, GLFWwindow *p_window)
 {
     VkSurfaceKHR surface;
-    VkResult result = glfwCreateWindowSurface(p_instance, p_window, nullptr, &surface);
+    VkResult result =
+        glfwCreateWindowSurface(p_instance, p_window, nullptr, &surface);
     if (result != VK_SUCCESS)
     {
-        fmt::print("[FATAL ERROR]: Failed to create the window surface. Vulkan error {}", result);
+        fmt::print("[FATAL ERROR]: Failed to create the window surface. Vulkan "
+                   "error {}",
+                   result);
         std::exit(EXIT_FAILURE);
     }
-    
+
     return surface;
 }
 
-VkPhysicalDevice pick_physical_device(VkInstance p_instance)
+auto find_queue_families(VkPhysicalDevice p_physical_device,
+                         VkSurfaceKHR p_surface)
+    -> std::tuple<std::optional<uint32_t>, std::optional<uint32_t>>
+{
+    std::optional<uint32_t> graphics_family;
+    std::optional<uint32_t> present_family;
+
+    uint32_t queue_family_count;
+    vkGetPhysicalDeviceQueueFamilyProperties(p_physical_device,
+                                             &queue_family_count, nullptr);
+
+    std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
+    vkGetPhysicalDeviceQueueFamilyProperties(
+        p_physical_device, &queue_family_count, queue_families.data());
+
+    for (uint32_t i = 0; i < queue_families.size(); i++)
+    {
+        if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        {
+            graphics_family = i;
+        }
+
+        VkBool32 present_support;
+        vkGetPhysicalDeviceSurfaceSupportKHR(p_physical_device, i, p_surface,
+                                             &present_support);
+
+        if (present_support)
+        {
+            present_family = i;
+        }
+    }
+
+    return {graphics_family, present_family};
+}
+
+VkPhysicalDevice pick_physical_device(VkInstance p_instance,
+                                      VkSurfaceKHR p_surface)
 {
     uint32_t physical_device_count;
     vkEnumeratePhysicalDevices(p_instance, &physical_device_count, nullptr);
-    
+
     std::vector<VkPhysicalDevice> physical_devices(physical_device_count);
-    vkEnumeratePhysicalDevices(p_instance, &physical_device_count, physical_devices.data());
-    
+    vkEnumeratePhysicalDevices(p_instance, &physical_device_count,
+                               physical_devices.data());
+
     std::vector<VkPhysicalDevice> usable_physical_devices;
-    for (const auto& physical_device: physical_devices)
+    for (const auto &physical_device : physical_devices)
     {
-        
-        
-        std::vector<VkQueueFamilyProperties> queue_families;
-        
+        auto [graphics_family, present_family] =
+            find_queue_families(physical_device, p_surface);
+
+        // A physical device must have both a present family and a graphics fa-
+        // mily for it to be usable.
+        if (graphics_family.has_value() && present_family.has_value())
+        {
+            usable_physical_devices.push_back(physical_device);
+        }
     }
+
+    VkPhysicalDevice chosen_device = usable_physical_devices[0];
+    for (const auto &physical_device : usable_physical_devices)
+    {
+        VkPhysicalDeviceProperties device_properties;
+        vkGetPhysicalDeviceProperties(physical_device, &device_properties);
+
+        // This is assuming that you either have a single dedicated GPU, a ded-
+        // icated GPU and an integrated GPU, or a single integrated GPU and no-
+        // thing else.
+        if (device_properties.deviceType ==
+            VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+        {
+            chosen_device = physical_device;
+            break;
+        }
+    }
+    
+    VkPhysicalDeviceProperties device_properties;
+    vkGetPhysicalDeviceProperties(chosen_device, &device_properties);
+    
+    fmt::print("[INFO]: We chose to use the {} graphics card.\n", device_properties.deviceName);
+    
+    return chosen_device;
 }
 
 // The actual main function
@@ -196,8 +265,9 @@ int real_main()
         glfwTerminate();
         return EXIT_FAILURE;
     }
-    
+
     const VkSurfaceKHR surface = create_surface(instance, window);
+    const VkPhysicalDevice physical_device = pick_physical_device(instance, surface);
 
     glfwShowWindow(window);
 
@@ -205,7 +275,7 @@ int real_main()
     {
         glfwPollEvents();
     }
-    
+
     vkDestroySurfaceKHR(instance, surface, nullptr);
 
     if (ENABLE_VALIDATION)
