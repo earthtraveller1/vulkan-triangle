@@ -7,8 +7,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
 find_package(Vulkan)
 
-add_subdirectory(deps/fmt)
-add_subdirectory(deps/glfw)
+add_subdirectory(deps)
 
 add_executable(vulkan-triangle src/main.cpp)
 
