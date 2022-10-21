@@ -234,6 +234,11 @@ VkPhysicalDevice pick_physical_device(VkInstance p_instance,
     return chosen_device;
 }
 
+auto create_device(VkPhysicalDevice p_physical_device, VkInstance p_instance) -> std::tuple<VkDevice, VkQueue, VkQueue>
+{
+    
+}
+
 // The actual main function
 int real_main()
 {
