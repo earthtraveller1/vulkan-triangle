@@ -23,7 +23,7 @@ namespace
 const uint16_t WINDOW_WIDTH = 1024;
 const uint16_t WINDOW_HEIGHT = 768;
 
-const bool ENABLE_VALIDATION = true;
+const bool ENABLE_VALIDATION = false;
 
 VkBool32 debug_messenger_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT, VkDebugUtilsMessageTypeFlagsEXT,
