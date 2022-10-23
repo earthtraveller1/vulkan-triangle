@@ -225,18 +225,86 @@ VkPhysicalDevice pick_physical_device(VkInstance p_instance,
             break;
         }
     }
-    
+
     VkPhysicalDeviceProperties device_properties;
     vkGetPhysicalDeviceProperties(chosen_device, &device_properties);
-    
-    fmt::print("[INFO]: We chose to use the {} graphics card.\n", device_properties.deviceName);
-    
+
+    fmt::print("[INFO]: We chose to use the {} graphics card.\n",
+               device_properties.deviceName);
+
     return chosen_device;
 }
 
-auto create_device(VkPhysicalDevice p_physical_device, VkInstance p_instance) -> std::tuple<VkDevice, VkQueue, VkQueue>
+// Return values:
+// - Logical device handle
+// - Graphics queue handle
+// - Present queue handle
+auto create_logical_device(VkPhysicalDevice p_physical_device,
+                           std::uint32_t p_graphics_family,
+                           std::uint32_t p_present_family)
+    -> std::tuple<VkDevice, VkQueue, VkQueue>
 {
-    
+    auto queue_create_infos = std::vector<VkDeviceQueueCreateInfo>();
+
+    const auto queue_priority = 1.0f;
+
+    if (p_graphics_family == p_present_family)
+    {
+        const auto queue_create_info = VkDeviceQueueCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .flags = 0,
+            .queueFamilyIndex = p_graphics_family,
+            .queueCount = 1,
+            .pQueuePriorities = &queue_priority,
+        };
+
+        queue_create_infos.push_back(queue_create_info);
+    }
+    else
+    {
+        auto queue_create_info = VkDeviceQueueCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .flags = 0,
+            .queueFamilyIndex = p_graphics_family,
+            .queueCount = 1,
+            .pQueuePriorities = &queue_priority,
+        };
+
+        queue_create_infos.push_back(queue_create_info);
+
+        queue_create_info.queueFamilyIndex = p_present_family;
+        queue_create_infos.push_back(queue_create_info);
+    }
+
+    const auto create_info =
+        VkDeviceCreateInfo{.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+                           .pNext = nullptr,
+                           .flags = 0,
+                           .queueCreateInfoCount =
+                               static_cast<uint32_t>(queue_create_infos.size()),
+                           .pQueueCreateInfos = queue_create_infos.data(),
+                           .enabledLayerCount = 0,
+                           .ppEnabledLayerNames = nullptr,
+                           .enabledExtensionCount = 0,
+                           .ppEnabledExtensionNames = nullptr,
+                           .pEnabledFeatures = nullptr};
+
+    auto device = static_cast<VkDevice>(nullptr);
+    const auto result =
+        vkCreateDevice(p_physical_device, &create_info, nullptr, &device);
+    if (result != VK_SUCCESS)
+    {
+        fmt::print("[FATAL ERROR]: Failed to create the logical device.\n");
+        std::exit(EXIT_FAILURE);
+    }
+
+    auto graphics_queue = static_cast<VkQueue>(nullptr);
+    auto present_queue = static_cast<VkQueue>(nullptr);
+
+    vkGetDeviceQueue(device, p_graphics_family, 0, &graphics_queue);
+    vkGetDeviceQueue(device, p_present_family, 0, &present_queue);
+
+    return {device, graphics_queue, present_queue};
 }
 
 // The actual main function
@@ -272,7 +340,16 @@ int real_main()
     }
 
     const VkSurfaceKHR surface = create_surface(instance, window);
-    const VkPhysicalDevice physical_device = pick_physical_device(instance, surface);
+    const VkPhysicalDevice physical_device =
+        pick_physical_device(instance, surface);
+
+    const auto [graphics_queue_family_opt, present_queue_family_opt] =
+        find_queue_families(physical_device, surface);
+    const auto graphics_queue_family = graphics_queue_family_opt.value();
+    const auto present_queue_family = present_queue_family_opt.value();
+
+    const auto [device, graphics_queue, present_queue] = create_logical_device(
+        physical_device, graphics_queue_family, present_queue_family);
 
     glfwShowWindow(window);
 
@@ -280,7 +357,8 @@ int real_main()
     {
         glfwPollEvents();
     }
-
+    
+    vkDestroyDevice(device, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
 
     if (ENABLE_VALIDATION)
@@ -289,7 +367,7 @@ int real_main()
         hello56721_vkDestroyDebugUtilsMessengerEXT(instance, debug_messenger,
                                                    nullptr);
     }
-
+    
     vkDestroyInstance(instance, nullptr);
 
     glfwTerminate();
