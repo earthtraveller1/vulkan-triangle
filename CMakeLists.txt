@@ -3,14 +3,6 @@ cmake_minimum_required(VERSION 3.13)
 project(VulkanTriangle)
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
-
-if (WIN32)
-    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
-else()
-    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
-endif()
 
 add_subdirectory(deps/glfw)
 add_subdirectory(deps/fmt)
@@ -35,9 +27,11 @@ ExternalProject_Add(
                -DBUILD_SHARED_LIBS=false
 )
 
+set(VULKAN_LINK_DIR ${CMAKE_BINARY_DIR}/deps/Vulkan-Loader/install/lib)
 if (UNIX AND NOT APPLE)
-    set(VULKAN_LINK_DIR ${CMAKE_BINARY_DIR}/deps/Vulkan-Loader/install/lib)
     set(VULKAN_LIB vulkan)
+elseif(WIN32)
+    set(VULKAN_LIB vulkan-1)
 endif()
 
 ExternalProject_Add_StepDependencies(Vulkan-Loader build Vulkan-Headers)
