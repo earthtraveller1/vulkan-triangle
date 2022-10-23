@@ -20,10 +20,10 @@
 namespace
 {
 
-const uint16_t WINDOW_WIDTH = 1024;
-const uint16_t WINDOW_HEIGHT = 768;
+constexpr uint16_t WINDOW_WIDTH = 1024;
+constexpr uint16_t WINDOW_HEIGHT = 768;
 
-const bool ENABLE_VALIDATION = true;
+constexpr bool ENABLE_VALIDATION = true;
 
 VkBool32 debug_messenger_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT, VkDebugUtilsMessageTypeFlagsEXT,
@@ -34,7 +34,7 @@ VkBool32 debug_messenger_callback(
     return VK_FALSE;
 }
 
-const VkDebugUtilsMessengerCreateInfoEXT DEBUG_MESSENGER_CREATE_INFO{
+constexpr VkDebugUtilsMessengerCreateInfoEXT DEBUG_MESSENGER_CREATE_INFO{
     .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
     .pNext = nullptr,
     .flags = 0,
