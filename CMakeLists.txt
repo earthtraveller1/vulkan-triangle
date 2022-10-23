@@ -36,6 +36,12 @@ endif()
 
 ExternalProject_Add_StepDependencies(Vulkan-Loader build Vulkan-Headers)
 
+if (MSVC)
+    add_compile_options(/W4)
+else()
+    add_compile_options(-Wall -pedantic)
+endif()
+
 add_executable(vulkan-triangle src/main.cpp)
 
 add_dependencies(vulkan-triangle Vulkan-Loader)
