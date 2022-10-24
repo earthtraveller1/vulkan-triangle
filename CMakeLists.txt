@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.13)
 
 project(VulkanTriangle)
 
+if (APPLE)
+    message(FATAL_ERROR "Apple platforms are not supported!")
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 
 add_subdirectory(deps/glfw)
