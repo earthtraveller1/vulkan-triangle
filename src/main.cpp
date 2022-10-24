@@ -485,11 +485,14 @@ auto choose_swap_chain_settings(
     return {chosen_format, chosen_present_mode, swap_chain_extent};
 }
 
+// Return values
+// - the swapchain handle
+// - the handles to the swapchain images
 auto create_swap_chain(VkPhysicalDevice p_physical_device,
                        VkSurfaceKHR p_surface, GLFWwindow* p_window,
                        std::uint32_t p_graphics_family,
                        std::uint32_t p_present_family, VkDevice p_device)
-    -> VkSwapchainKHR
+    -> std::tuple<VkSwapchainKHR, std::vector<VkImage>>
 {
     const auto [surface_capabilties, formats, present_modes] =
         query_swap_chain_support_details(p_physical_device, p_surface);
@@ -543,7 +546,13 @@ auto create_swap_chain(VkPhysicalDevice p_physical_device,
         std::exit(EXIT_FAILURE);
     }
 
-    return swap_chain;
+    auto image_count = static_cast<std::uint32_t>(0);
+    vkGetSwapchainImagesKHR(p_device, swap_chain, &image_count, nullptr);
+
+    auto images = std::vector<VkImage>(image_count);
+    vkGetSwapchainImagesKHR(p_device, swap_chain, &image_count, images.data());
+
+    return {swap_chain, images};
 }
 
 // The actual main function
@@ -590,7 +599,7 @@ int real_main()
     const auto [device, graphics_queue, present_queue] = create_logical_device(
         physical_device, graphics_queue_family, present_queue_family);
 
-    const auto swap_chain =
+    const auto [swap_chain, swap_chain_images] =
         create_swap_chain(physical_device, surface, window,
                           graphics_queue_family, present_queue_family, device);
 
