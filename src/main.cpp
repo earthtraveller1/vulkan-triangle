@@ -6,8 +6,12 @@
 #include <Windows.h>
 #endif
 
+#include <cstdint>
 #include <cstdlib>
 
+#include <algorithm>
+#include <array>
+#include <limits>
 #include <optional>
 #include <set>
 #include <tuple>
@@ -25,9 +29,19 @@ constexpr uint16_t WINDOW_HEIGHT = 768;
 
 constexpr bool ENABLE_VALIDATION = true;
 
+constexpr auto DEVICE_EXTENSIONS =
+    std::array<const char*, 1>{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
+struct swap_chain_support_details_t
+{
+    VkSurfaceCapabilitiesKHR surface_capabilities;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR> present_modes;
+};
+
 VkBool32 debug_messenger_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT, VkDebugUtilsMessageTypeFlagsEXT,
-    const VkDebugUtilsMessengerCallbackDataEXT *p_callback_data, void *)
+    const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data, void*)
 {
     fmt::print("[VULKAN]: {}\n", p_callback_data->pMessage);
 
@@ -48,7 +62,7 @@ constexpr VkDebugUtilsMessengerCreateInfoEXT DEBUG_MESSENGER_CREATE_INFO{
     .pfnUserCallback = debug_messenger_callback,
     .pUserData = nullptr};
 
-void glfw_error_callback(int p_error_code, const char *p_message)
+void glfw_error_callback(int p_error_code, const char* p_message)
 {
     fmt::print("[GLFW ERROR {}]: {}\n", p_error_code, p_message);
 }
@@ -65,10 +79,10 @@ VkInstance create_instance()
         .apiVersion = VK_API_VERSION_1_2};
 
     uint32_t glfw_vulkan_extension_count;
-    const char **glfw_vulkan_extensions =
+    const char** glfw_vulkan_extensions =
         glfwGetRequiredInstanceExtensions(&glfw_vulkan_extension_count);
 
-    std::vector<const char *> enabled_extensions(
+    std::vector<const char*> enabled_extensions(
         glfw_vulkan_extensions,
         glfw_vulkan_extensions + glfw_vulkan_extension_count);
     if (ENABLE_VALIDATION)
@@ -76,14 +90,14 @@ VkInstance create_instance()
         enabled_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
 
-    std::vector<const char *> enabled_layers;
+    std::vector<const char*> enabled_layers;
     if (ENABLE_VALIDATION)
     {
         enabled_layers.push_back("VK_LAYER_KHRONOS_validation");
     }
 
     fmt::print("[INFO]: Enabling the following extensions:\n");
-    for (const auto &extension : enabled_extensions)
+    for (const auto& extension : enabled_extensions)
     {
         fmt::print("\t{}\n", extension);
     }
@@ -134,7 +148,7 @@ VkDebugUtilsMessengerEXT create_debug_messenger(VkInstance p_instance)
     return debug_messenger;
 }
 
-VkSurfaceKHR create_surface(VkInstance p_instance, GLFWwindow *p_window)
+VkSurfaceKHR create_surface(VkInstance p_instance, GLFWwindow* p_window)
 {
     VkSurfaceKHR surface;
     VkResult result =
@@ -185,6 +199,42 @@ auto find_queue_families(VkPhysicalDevice p_physical_device,
     return {graphics_family, present_family};
 }
 
+auto query_swap_chain_support_details(VkPhysicalDevice p_physical_device,
+                                      VkSurfaceKHR p_surface)
+    -> swap_chain_support_details_t
+{
+    auto support_details = swap_chain_support_details_t{};
+
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+        p_physical_device, p_surface, &support_details.surface_capabilities);
+
+    auto format_count = static_cast<uint32_t>(0);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(p_physical_device, p_surface,
+                                         &format_count, nullptr);
+
+    if (format_count != 0)
+    {
+        support_details.formats.resize(format_count);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(p_physical_device, p_surface,
+                                             &format_count,
+                                             support_details.formats.data());
+    }
+
+    auto present_mode_count = static_cast<uint32_t>(0);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(p_physical_device, p_surface,
+                                              &present_mode_count, nullptr);
+
+    if (present_mode_count != 0)
+    {
+        support_details.present_modes.resize(present_mode_count);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(
+            p_physical_device, p_surface, &present_mode_count,
+            support_details.present_modes.data());
+    }
+
+    return support_details;
+}
+
 VkPhysicalDevice pick_physical_device(VkInstance p_instance,
                                       VkSurfaceKHR p_surface)
 {
@@ -196,21 +246,66 @@ VkPhysicalDevice pick_physical_device(VkInstance p_instance,
                                physical_devices.data());
 
     std::vector<VkPhysicalDevice> usable_physical_devices;
-    for (const auto &physical_device : physical_devices)
+    for (const auto& physical_device : physical_devices)
     {
         auto [graphics_family, present_family] =
             find_queue_families(physical_device, p_surface);
 
+        auto has_required_extensions = true;
+
+        auto available_extension_count = static_cast<std::uint32_t>(0);
+        vkEnumerateDeviceExtensionProperties(
+            physical_device, nullptr, &available_extension_count, nullptr);
+
+        auto available_extensions =
+            std::vector<VkExtensionProperties>(available_extension_count);
+        vkEnumerateDeviceExtensionProperties(physical_device, nullptr,
+                                             &available_extension_count,
+                                             available_extensions.data());
+
+        for (const auto& extension : DEVICE_EXTENSIONS)
+        {
+            auto extension_found = false;
+
+            for (const auto& available_extension : available_extensions)
+            {
+                if (std::strcmp(available_extension.extensionName, extension) ==
+                    0)
+                {
+                    extension_found = true;
+                    break;
+                }
+            }
+
+            if (!extension_found)
+            {
+                has_required_extensions = false;
+                break;
+            }
+        }
+
+        auto swap_chain_adequate = false;
+
+        if (has_required_extensions)
+        {
+            const auto [surface_capabilities, formats, present_modes] =
+                query_swap_chain_support_details(physical_device, p_surface);
+
+            swap_chain_adequate = !formats.empty() && !present_modes.empty();
+        }
+
         // A physical device must have both a present family and a graphics fa-
-        // mily for it to be usable.
-        if (graphics_family.has_value() && present_family.has_value())
+        // mily for it to be usable. And it must have all the required extensi-
+        // ons, plus an adequate swap chain.
+        if (graphics_family.has_value() && present_family.has_value() &&
+            has_required_extensions && swap_chain_adequate)
         {
             usable_physical_devices.push_back(physical_device);
         }
     }
 
     VkPhysicalDevice chosen_device = usable_physical_devices[0];
-    for (const auto &physical_device : usable_physical_devices)
+    for (const auto& physical_device : usable_physical_devices)
     {
         VkPhysicalDeviceProperties device_properties;
         vkGetPhysicalDeviceProperties(physical_device, &device_properties);
@@ -285,8 +380,9 @@ auto create_logical_device(VkPhysicalDevice p_physical_device,
                            .pQueueCreateInfos = queue_create_infos.data(),
                            .enabledLayerCount = 0,
                            .ppEnabledLayerNames = nullptr,
-                           .enabledExtensionCount = 0,
-                           .ppEnabledExtensionNames = nullptr,
+                           .enabledExtensionCount =
+                               static_cast<uint32_t>(DEVICE_EXTENSIONS.size()),
+                           .ppEnabledExtensionNames = DEVICE_EXTENSIONS.data(),
                            .pEnabledFeatures = nullptr};
 
     auto device = static_cast<VkDevice>(nullptr);
@@ -305,6 +401,66 @@ auto create_logical_device(VkPhysicalDevice p_physical_device,
     vkGetDeviceQueue(device, p_present_family, 0, &present_queue);
 
     return {device, graphics_queue, present_queue};
+}
+
+auto choose_swap_chain_settings(
+    GLFWwindow* p_window,
+    const std::vector<VkSurfaceFormatKHR>& p_available_formats,
+    const std::vector<VkPresentModeKHR>& p_available_present_modes,
+    const VkSurfaceCapabilitiesKHR& p_surface_capabilties)
+    -> std::tuple<VkSurfaceFormatKHR, VkPresentModeKHR, VkExtent2D>
+{
+    auto chosen_format = p_available_formats[0];
+
+    for (const auto& format : p_available_formats)
+    {
+        if (format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR &&
+            format.format == VK_FORMAT_B8G8R8A8_SRGB)
+        {
+            chosen_format = format;
+            break;
+        }
+    }
+
+    auto chosen_present_mode = VK_PRESENT_MODE_FIFO_KHR;
+
+    for (const auto& present_mode : p_available_present_modes)
+    {
+        if (present_mode == VK_PRESENT_MODE_MAILBOX_KHR)
+        {
+            chosen_present_mode = present_mode;
+            fmt::print(
+                "[INFO]: YAY! We get to use VK_PRESENT_MODE_MAILBOX_KHR!\n");
+        }
+    }
+
+    auto swap_chain_extent = VkExtent2D{};
+
+    if (p_surface_capabilties.currentExtent.width ==
+        (std::numeric_limits<std::uint32_t>::max)())
+    {
+        auto width = 0, height = 0;
+        glfwGetFramebufferSize(p_window, &width, &height);
+
+        swap_chain_extent.width =
+            std::clamp(static_cast<uint32_t>(width),
+                       p_surface_capabilties.minImageExtent.width,
+                       p_surface_capabilties.maxImageExtent.width);
+        swap_chain_extent.height =
+            std::clamp(static_cast<uint32_t>(height),
+                       p_surface_capabilties.minImageExtent.height,
+                       p_surface_capabilties.maxImageExtent.height);
+    }
+    else
+    {
+        swap_chain_extent = p_surface_capabilties.currentExtent;
+    }
+
+    return {chosen_format, chosen_present_mode, swap_chain_extent};
+}
+
+auto create_swap_chain() -> VkSwapchainKHR {
+    
 }
 
 // The actual main function
@@ -330,7 +486,7 @@ int real_main()
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-    GLFWwindow *window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT,
+    GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT,
                                           "Vulkan Triangle", nullptr, nullptr);
     if (window == nullptr)
     {
@@ -357,7 +513,7 @@ int real_main()
     {
         glfwPollEvents();
     }
-    
+
     vkDestroyDevice(device, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
 
@@ -367,7 +523,7 @@ int real_main()
         hello56721_vkDestroyDebugUtilsMessengerEXT(instance, debug_messenger,
                                                    nullptr);
     }
-    
+
     vkDestroyInstance(instance, nullptr);
 
     glfwTerminate();
