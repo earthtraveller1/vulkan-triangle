@@ -39,10 +39,18 @@ struct swap_chain_support_details_t
     std::vector<VkPresentModeKHR> present_modes;
 };
 
+auto do_nothing() {}
+
 VkBool32 debug_messenger_callback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT, VkDebugUtilsMessageTypeFlagsEXT,
+    VkDebugUtilsMessageSeverityFlagBitsEXT p_severity,
+    VkDebugUtilsMessageTypeFlagsEXT,
     const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data, void*)
 {
+    if (p_severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+    {
+        do_nothing();
+    }
+
     fmt::print("[VULKAN]: {}\n", p_callback_data->pMessage);
 
     return VK_FALSE;
@@ -263,6 +271,12 @@ VkPhysicalDevice pick_physical_device(VkInstance p_instance,
                                              &available_extension_count,
                                              available_extensions.data());
 
+        auto device_properties = VkPhysicalDeviceProperties{};
+        vkGetPhysicalDeviceProperties(physical_device, &device_properties);
+
+        fmt::print("[INFO]: Found physical device {}\n",
+                   device_properties.deviceName);
+
         for (const auto& extension : DEVICE_EXTENSIONS)
         {
             auto extension_found = false;
@@ -286,7 +300,8 @@ VkPhysicalDevice pick_physical_device(VkInstance p_instance,
 
         auto swap_chain_adequate = false;
 
-        if (has_required_extensions)
+        if (has_required_extensions && graphics_family.has_value() &&
+            present_family.has_value())
         {
             const auto [surface_capabilities, formats, present_modes] =
                 query_swap_chain_support_details(physical_device, p_surface);
@@ -302,6 +317,13 @@ VkPhysicalDevice pick_physical_device(VkInstance p_instance,
         {
             usable_physical_devices.push_back(physical_device);
         }
+    }
+
+    if (usable_physical_devices.empty())
+    {
+        fmt::print(
+            "[FATAL ERROR]: Failed to find any adequate physical devices!\n");
+        std::exit(EXIT_FAILURE);
     }
 
     VkPhysicalDevice chosen_device = usable_physical_devices[0];
@@ -403,6 +425,10 @@ auto create_logical_device(VkPhysicalDevice p_physical_device,
     return {device, graphics_queue, present_queue};
 }
 
+// The return types are like this
+// - Format
+// - Present Mode
+// - Extent
 auto choose_swap_chain_settings(
     GLFWwindow* p_window,
     const std::vector<VkSurfaceFormatKHR>& p_available_formats,
@@ -459,8 +485,65 @@ auto choose_swap_chain_settings(
     return {chosen_format, chosen_present_mode, swap_chain_extent};
 }
 
-auto create_swap_chain() -> VkSwapchainKHR {
-    
+auto create_swap_chain(VkPhysicalDevice p_physical_device,
+                       VkSurfaceKHR p_surface, GLFWwindow* p_window,
+                       std::uint32_t p_graphics_family,
+                       std::uint32_t p_present_family, VkDevice p_device)
+    -> VkSwapchainKHR
+{
+    const auto [surface_capabilties, formats, present_modes] =
+        query_swap_chain_support_details(p_physical_device, p_surface);
+    const auto [format, present_mode, extent] = choose_swap_chain_settings(
+        p_window, formats, present_modes, surface_capabilties);
+
+    const auto queue_families =
+        std::array<std::uint32_t, 2>{p_graphics_family, p_present_family};
+
+    auto create_info = VkSwapchainCreateInfoKHR{
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .pNext = nullptr,
+        .flags = 0,
+        .surface = p_surface,
+        .minImageCount = surface_capabilties.minImageCount + 1,
+        .imageFormat = format.format,
+        .imageColorSpace = format.colorSpace,
+        .imageExtent = extent,
+        .imageArrayLayers = 1,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr,
+        .preTransform = surface_capabilties.currentTransform,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode = present_mode,
+        .clipped = VK_FALSE,
+        .oldSwapchain = VK_NULL_HANDLE};
+
+    if (p_graphics_family != p_present_family)
+    {
+        create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        create_info.queueFamilyIndexCount = queue_families.size();
+        create_info.pQueueFamilyIndices = queue_families.data();
+    }
+
+    if (surface_capabilties.maxImageCount > 0 &&
+        create_info.minImageCount > surface_capabilties.maxImageCount)
+    {
+        create_info.minImageCount = surface_capabilties.maxImageCount;
+    }
+
+    auto swap_chain = static_cast<VkSwapchainKHR>(VK_NULL_HANDLE);
+    const auto result =
+        vkCreateSwapchainKHR(p_device, &create_info, nullptr, &swap_chain);
+    if (result != VK_SUCCESS)
+    {
+        fmt::print(
+            "[FATAL ERROR]: Failed to create the swap chain: Vulkan error {}.",
+            result);
+        std::exit(EXIT_FAILURE);
+    }
+
+    return swap_chain;
 }
 
 // The actual main function
@@ -507,6 +590,10 @@ int real_main()
     const auto [device, graphics_queue, present_queue] = create_logical_device(
         physical_device, graphics_queue_family, present_queue_family);
 
+    const auto swap_chain =
+        create_swap_chain(physical_device, surface, window,
+                          graphics_queue_family, present_queue_family, device);
+
     glfwShowWindow(window);
 
     while (!glfwWindowShouldClose(window))
@@ -514,6 +601,7 @@ int real_main()
         glfwPollEvents();
     }
 
+    vkDestroySwapchainKHR(device, swap_chain, nullptr);
     vkDestroyDevice(device, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
 
