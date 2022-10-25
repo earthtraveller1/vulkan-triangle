@@ -12,11 +12,14 @@
 
 #include <algorithm>
 #include <array>
+#include <fstream>
 #include <limits>
 #include <optional>
 #include <set>
+#include <string_view>
 #include <tuple>
 #include <vector>
+
 
 #define LOAD_VK_FUNCTION(function, instance)                                   \
     const auto hello56721_##function = reinterpret_cast<PFN_##function>(       \
@@ -528,7 +531,7 @@ auto create_swap_chain(VkPhysicalDevice p_physical_device,
     if (p_graphics_family != p_present_family)
     {
         create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-        create_info.queueFamilyIndexCount = queue_families.size();
+        create_info.queueFamilyIndexCount = static_cast<uint32_t>(queue_families.size());
         create_info.pQueueFamilyIndices = queue_families.data();
     }
 
@@ -558,7 +561,7 @@ auto create_swap_chain(VkPhysicalDevice p_physical_device,
     return {swap_chain, images, format.format, extent};
 }
 
-auto create_image_views(VkSwapchainKHR p_swap_chain, VkDevice p_device,
+auto create_image_views(VkDevice p_device,
                         const std::vector<VkImage> p_swap_chain_images,
                         VkFormat p_format) -> std::vector<VkImageView>
 {
@@ -598,11 +601,106 @@ auto create_image_views(VkSwapchainKHR p_swap_chain, VkDevice p_device,
                        i, result);
             std::exit(EXIT_FAILURE);
         }
-        
+
         image_views[i] = image_view;
     }
 
     return image_views;
+}
+
+auto load_binary_file(std::string_view p_path) -> std::vector<char>
+{
+    auto file =
+        std::ifstream(p_path.data(), std::fstream::binary | std::fstream::ate);
+
+    if (!file.is_open())
+    {
+        fmt::print(stderr,
+                   "[ERROR]: Failed to either find or access {}. Check if the "
+                   "file actually exists and if the user has the neccessary "
+                   "permissions to access it.\n",
+                   p_path);
+        return {};
+    }
+
+    const auto file_size = file.tellg();
+    auto buffer = std::vector<char>(file_size);
+
+    file.seekg(0);
+    file.read(buffer.data(), file_size);
+
+    return buffer;
+}
+
+auto create_shader_module(VkDevice p_device, const std::vector<char>& p_code)
+    -> VkShaderModule
+{
+    const auto create_info = VkShaderModuleCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .codeSize = p_code.size(),
+        .pCode = reinterpret_cast<const std::uint32_t*>(p_code.data())};
+
+    auto shader_module = static_cast<VkShaderModule>(VK_NULL_HANDLE);
+    const auto result =
+        vkCreateShaderModule(p_device, &create_info, nullptr, &shader_module);
+    if (result != VK_SUCCESS)
+    {
+        fmt::print(
+            stderr,
+            "[FATAL ERROR]: Failed to create a shader module. Vulkan error {}.",
+            result);
+        std::exit(EXIT_FAILURE);
+    }
+
+    return shader_module;
+}
+
+auto create_graphics_pipeline(VkDevice p_device)
+{
+    const auto vertex_shader_code = load_binary_file("shaders/shader.vert.spv");
+    const auto fragment_shader_code =
+        load_binary_file("shaders/shader.frag.spv");
+
+    const auto vertex_shader_module =
+        create_shader_module(p_device, vertex_shader_code);
+    const auto fragment_shader_module =
+        create_shader_module(p_device, fragment_shader_code);
+
+    const auto vertex_shader_stage_info = VkPipelineShaderStageCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .stage = VK_SHADER_STAGE_VERTEX_BIT,
+        .module = vertex_shader_module,
+        .pName = "main",
+        .pSpecializationInfo = nullptr};
+
+    const auto fragment_shader_stage_info = VkPipelineShaderStageCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .module = fragment_shader_module,
+        .pName = "main",
+        .pSpecializationInfo = nullptr};
+
+    const auto shader_stages = std::array<VkPipelineShaderStageCreateInfo, 2>{
+        fragment_shader_stage_info, vertex_shader_stage_info};
+    
+    const auto dynamic_states = std::array<VkDynamicState, 2> { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+    
+    const auto dynamic_state = VkPipelineDynamicStateCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .dynamicStateCount = static_cast<std::uint32_t>(dynamic_states.size()),
+        .pDynamicStates = dynamic_states.data()
+    };
+
+    vkDestroyShaderModule(p_device, vertex_shader_module, nullptr);
+    vkDestroyShaderModule(p_device, fragment_shader_module, nullptr);
 }
 
 // The actual main function
@@ -655,7 +753,7 @@ int real_main()
                           graphics_queue_family, present_queue_family, device);
 
     const auto swap_chain_image_views = create_image_views(
-        swap_chain, device, swap_chain_images, swap_chain_format);
+        device, swap_chain_images, swap_chain_format);
 
     glfwShowWindow(window);
 
@@ -663,12 +761,12 @@ int real_main()
     {
         glfwPollEvents();
     }
-    
-    for (const auto& image_view: swap_chain_image_views)
+
+    for (const auto& image_view : swap_chain_image_views)
     {
         vkDestroyImageView(device, image_view, nullptr);
     }
-    
+
     vkDestroySwapchainKHR(device, swap_chain, nullptr);
     vkDestroyDevice(device, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
