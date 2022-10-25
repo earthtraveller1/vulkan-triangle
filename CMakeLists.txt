@@ -33,11 +33,11 @@ ExternalProject_Add(
                -DBUILD_SHARED_LIBS=false
 )
 
-function(compile_shader input output)
+function(compile_shader input)
     add_custom_command(
-        OUTPUT ${output} 
+        OUTPUT ${CMAKE_SOURCE_DIR}/${input}.spv
         COMMAND glslc 
-        ARGS -o ${CMAKE_SOURCE_DIR}/${output} ${CMAKE_SOURCE_DIR}/${input}
+        ARGS -o ${CMAKE_SOURCE_DIR}/${input}.spv ${CMAKE_SOURCE_DIR}/${input}
         MAIN_DEPENDENCY ${input}
     )
 endfunction()
@@ -66,8 +66,8 @@ if (VULKAN_TRIANGLE_COMPILE_SHADERS)
         shaders/shader.frag
         shaders/shader.vert)
     
-    compile_shader(shaders/shader.vert shaders/shader.vert.spv)
-    compile_shader(shaders/shader.frag shaders/shader.frag.spv)
+    compile_shader(shaders/shader.vert)
+    compile_shader(shaders/shader.frag)
 endif()
 
 add_dependencies(vulkan-triangle Vulkan-Loader)
