@@ -1,26 +1,3 @@
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#include <fmt/format.h>
-
-#ifdef _WIN32
-#include <Windows.h>
-#endif
-
-#include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-
-#include <algorithm>
-#include <array>
-#include <fstream>
-#include <limits>
-#include <optional>
-#include <set>
-#include <string_view>
-#include <tuple>
-#include <vector>
-
-
 #define LOAD_VK_FUNCTION(function, instance)                                   \
     const auto hello56721_##function = reinterpret_cast<PFN_##function>(       \
         vkGetInstanceProcAddr(instance, #function))

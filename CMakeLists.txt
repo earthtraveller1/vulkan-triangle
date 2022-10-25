@@ -59,7 +59,10 @@ endif()
 
 add_executable(vulkan-triangle 
     src/main.cpp
+    src/pch.hpp
 )
+
+target_precompile_headers(vulkan-triangle PRIVATE src/pch.hpp)
 
 if (VULKAN_TRIANGLE_COMPILE_SHADERS)
     target_sources(vulkan-triangle PRIVATE
