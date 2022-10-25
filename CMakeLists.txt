@@ -8,6 +8,8 @@ endif()
 
 set(CMAKE_CXX_STANDARD 20)
 
+option(VULKAN_TRIANGLE_COMPILE_SHADERS OFF)
+
 add_subdirectory(deps/glfw)
 add_subdirectory(deps/fmt)
 
@@ -56,13 +58,17 @@ else()
 endif()
 
 add_executable(vulkan-triangle 
-    src/main.cpp 
-    shaders/shader.vert
-    shaders/shader.frag
+    src/main.cpp
 )
 
-compile_shader(shaders/shader.vert shaders/shader.vert.spv)
-compile_shader(shaders/shader.frag shaders/shader.frag.spv)
+if (VULKAN_TRIANGLE_COMPILE_SHADERS)
+    target_sources(vulkan-triangle PRIVATE
+        shaders/shader.frag
+        shaders/shader.vert)
+    
+    compile_shader(shaders/shader.vert shaders/shader.vert.spv)
+    compile_shader(shaders/shader.frag shaders/shader.frag.spv)
+endif()
 
 add_dependencies(vulkan-triangle Vulkan-Loader)
 
