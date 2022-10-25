@@ -31,6 +31,15 @@ ExternalProject_Add(
                -DBUILD_SHARED_LIBS=false
 )
 
+function(compile_shader input output)
+    add_custom_command(
+        OUTPUT ${output} 
+        COMMAND glslc 
+        ARGS -o ${CMAKE_SOURCE_DIR}/${output} ${CMAKE_SOURCE_DIR}/${input}
+        MAIN_DEPENDENCY ${input}
+    )
+endfunction()
+
 set(VULKAN_LINK_DIR ${CMAKE_BINARY_DIR}/deps/Vulkan-Loader/install/lib)
 if (UNIX AND NOT APPLE)
     set(VULKAN_LIB vulkan)
@@ -46,7 +55,14 @@ else()
     add_compile_options(-Wall -pedantic)
 endif()
 
-add_executable(vulkan-triangle src/main.cpp)
+add_executable(vulkan-triangle 
+    src/main.cpp 
+    shaders/shader.vert
+    shaders/shader.frag
+)
+
+compile_shader(shaders/shader.vert shaders/shader.vert.spv)
+compile_shader(shaders/shader.frag shaders/shader.frag.spv)
 
 add_dependencies(vulkan-triangle Vulkan-Loader)
 
