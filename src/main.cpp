@@ -20,6 +20,21 @@ struct swap_chain_support_details_t
     std::vector<VkPresentModeKHR> present_modes;
 };
 
+struct vertex_t
+{
+    glm::vec2 position;
+    glm::vec3 color;
+    
+    constexpr static auto get_binding_description() -> VkVertexInputBindingDescription
+    {
+        return VkVertexInputBindingDescription {
+            .binding = 0,
+            .stride = sizeof(vertex_t),
+            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+        };
+    }
+};
+
 auto do_nothing() {}
 
 VkBool32 debug_messenger_callback(
