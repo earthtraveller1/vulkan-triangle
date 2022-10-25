@@ -10,3 +10,6 @@
 [submodule "deps/Vulkan-Headers"]
 	path = deps/Vulkan-Headers
 	url = https://github.com/KhronosGroup/Vulkan-Headers
+[submodule "deps/glm"]
+	path = deps/glm
+	url = https://github.com/g-truc/glm
