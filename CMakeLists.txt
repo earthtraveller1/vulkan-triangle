@@ -76,6 +76,7 @@ target_include_directories(vulkan-triangle PRIVATE
     ${CMAKE_SOURCE_DIR}/deps/fmt/include
     ${CMAKE_SOURCE_DIR}/deps/glfw/include
     ${CMAKE_SOURCE_DIR}/deps/Vulkan-Headers/include
+    ${CMAKE_SOURCE_DIR}/deps/glm
 )
 
 target_link_directories(vulkan-triangle PRIVATE
