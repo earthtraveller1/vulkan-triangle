@@ -24,13 +24,30 @@ struct vertex_t
 {
     glm::vec2 position;
     glm::vec3 color;
-    
-    constexpr static auto get_binding_description() -> VkVertexInputBindingDescription
+
+    constexpr static auto get_binding_description()
+        -> VkVertexInputBindingDescription
     {
-        return VkVertexInputBindingDescription {
-            .binding = 0,
-            .stride = sizeof(vertex_t),
-            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+        return VkVertexInputBindingDescription{.binding = 0,
+                                               .stride = sizeof(vertex_t),
+                                               .inputRate =
+                                                   VK_VERTEX_INPUT_RATE_VERTEX};
+    }
+
+    constexpr static auto get_attribute_descriptions()
+        -> std::array<VkVertexInputAttributeDescription, 2>
+    {
+        return std::array<VkVertexInputAttributeDescription, 2>{
+            VkVertexInputAttributeDescription{.location = 0,
+                                              .binding = 0,
+                                              .format = VK_FORMAT_R32G32_SFLOAT,
+                                              .offset =
+                                                  offsetof(vertex_t, position)},
+            VkVertexInputAttributeDescription{
+                .location = 1,
+                .binding = 0,
+                .format = VK_FORMAT_R32G32B32_SFLOAT,
+                .offset = offsetof(vertex_t, color)},
         };
     }
 };
@@ -523,7 +540,8 @@ auto create_swap_chain(VkPhysicalDevice p_physical_device,
     if (p_graphics_family != p_present_family)
     {
         create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-        create_info.queueFamilyIndexCount = static_cast<uint32_t>(queue_families.size());
+        create_info.queueFamilyIndexCount =
+            static_cast<uint32_t>(queue_families.size());
         create_info.pQueueFamilyIndices = queue_families.data();
     }
 
@@ -680,16 +698,16 @@ auto create_graphics_pipeline(VkDevice p_device)
 
     const auto shader_stages = std::array<VkPipelineShaderStageCreateInfo, 2>{
         fragment_shader_stage_info, vertex_shader_stage_info};
-    
-    const auto dynamic_states = std::array<VkDynamicState, 2> { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
-    
+
+    const auto dynamic_states = std::array<VkDynamicState, 2>{
+        VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+
     const auto dynamic_state = VkPipelineDynamicStateCreateInfo{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
         .dynamicStateCount = static_cast<std::uint32_t>(dynamic_states.size()),
-        .pDynamicStates = dynamic_states.data()
-    };
+        .pDynamicStates = dynamic_states.data()};
 
     vkDestroyShaderModule(p_device, vertex_shader_module, nullptr);
     vkDestroyShaderModule(p_device, fragment_shader_module, nullptr);
@@ -744,8 +762,8 @@ int real_main()
         create_swap_chain(physical_device, surface, window,
                           graphics_queue_family, present_queue_family, device);
 
-    const auto swap_chain_image_views = create_image_views(
-        device, swap_chain_images, swap_chain_format);
+    const auto swap_chain_image_views =
+        create_image_views(device, swap_chain_images, swap_chain_format);
 
     glfwShowWindow(window);
 
