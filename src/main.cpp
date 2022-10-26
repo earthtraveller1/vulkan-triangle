@@ -667,7 +667,7 @@ auto create_shader_module(VkDevice p_device, const std::vector<char>& p_code)
     return shader_module;
 }
 
-auto create_graphics_pipeline(VkDevice p_device)
+auto create_graphics_pipeline(VkDevice p_device, VkExtent2D p_swap_chain_extent)
 {
     const auto vertex_shader_code = load_binary_file("shaders/shader.vert.spv");
     const auto fragment_shader_code =
@@ -708,6 +708,84 @@ auto create_graphics_pipeline(VkDevice p_device)
         .flags = 0,
         .dynamicStateCount = static_cast<std::uint32_t>(dynamic_states.size()),
         .pDynamicStates = dynamic_states.data()};
+
+    constexpr auto VERTEX_BINDING_DESCRIPTION =
+        vertex_t::get_binding_description();
+    constexpr auto VERTEX_ATTRIBUTE_DESCRIPTIONS =
+        vertex_t::get_attribute_descriptions();
+
+    const auto vertex_input = VkPipelineVertexInputStateCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .vertexBindingDescriptionCount = 1,
+        .pVertexBindingDescriptions = &VERTEX_BINDING_DESCRIPTION,
+        .vertexAttributeDescriptionCount =
+            static_cast<uint32_t>(VERTEX_ATTRIBUTE_DESCRIPTIONS.size()),
+        .pVertexAttributeDescriptions = VERTEX_ATTRIBUTE_DESCRIPTIONS.data(),
+    };
+
+    const auto input_assembly = VkPipelineInputAssemblyStateCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .primitiveRestartEnable = VK_FALSE,
+    };
+
+    const auto viewport = VkViewport{
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = static_cast<float>(p_swap_chain_extent.width),
+        .height = static_cast<float>(p_swap_chain_extent.height),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+
+    const auto scissor = VkRect2D{
+        .offset =
+            VkOffset2D{
+                .x = 0,
+                .y = 0,
+            },
+        .extent = p_swap_chain_extent,
+    };
+
+    const auto viewport_state = VkPipelineViewportStateCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .viewportCount = 1,
+        .pViewports = &viewport,
+        .scissorCount = 1,
+        .pScissors = &scissor};
+
+    const auto rasterization = VkPipelineRasterizationStateCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .depthClampEnable = VK_FALSE,
+        .rasterizerDiscardEnable = VK_FALSE,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .cullMode = VK_CULL_MODE_BACK_BIT,
+        .frontFace = VK_FRONT_FACE_CLOCKWISE,
+        .depthBiasEnable = VK_FALSE,
+        .depthBiasConstantFactor = 0.0f,
+        .depthBiasClamp = 0.0f,
+        .depthBiasSlopeFactor = 0.0f,
+        .lineWidth = 1.0f,
+    };
+
+    const auto multisampling = VkPipelineMultisampleStateCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        .sampleShadingEnable = VK_FALSE,
+        .minSampleShading = 0.0f,
+        .pSampleMask = nullptr,
+        .alphaToCoverageEnable = VK_FALSE,
+        .alphaToOneEnable = VK_FALSE};
 
     vkDestroyShaderModule(p_device, vertex_shader_module, nullptr);
     vkDestroyShaderModule(p_device, fragment_shader_module, nullptr);
