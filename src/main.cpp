@@ -786,9 +786,100 @@ auto create_graphics_pipeline(VkDevice p_device, VkExtent2D p_swap_chain_extent)
         .pSampleMask = nullptr,
         .alphaToCoverageEnable = VK_FALSE,
         .alphaToOneEnable = VK_FALSE};
+    
+    const auto color_blend_attachment = VkPipelineColorBlendAttachmentState{
+        .blendEnable = VK_FALSE,
+        .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
+        .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
+        .colorBlendOp = VK_BLEND_OP_ADD,
+        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+        .alphaBlendOp = VK_BLEND_OP_ADD,
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
+                          VK_COLOR_COMPONENT_G_BIT |
+                          VK_COLOR_COMPONENT_B_BIT |
+                          VK_COLOR_COMPONENT_A_BIT
+    };
+    
+    const auto color_blending = VkPipelineColorBlendStateCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_COPY,
+        .attachmentCount = 1,
+        .pAttachments = &color_blend_attachment,
+        .blendConstants = {
+            0.0f,
+            0.0f,
+            0.0f,
+            0.0f
+        }
+    };
+    
+    const auto pipeline_layout_info = VkPipelineLayoutCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .setLayoutCount = 0,
+        .pSetLayouts = nullptr,
+        .pushConstantRangeCount = 0,
+        .pPushConstantRanges = nullptr
+    };
+    
+    auto pipeline_layout = static_cast<VkPipelineLayout>(VK_NULL_HANDLE); // TODO: Clean this up afterwards.
+    const auto pipeline_layout_create_result = vkCreatePipelineLayout(p_device, &pipeline_layout_info, nullptr, &pipeline_layout);
+    if (pipeline_layout_create_result != VK_SUCCESS)
+    {
+        fmt::print("[FATAL ERROR]: Failed to create the pipeline layout. Vulkan error {}", pipeline_layout_create_result);
+        std::exit(EXIT_FAILURE);
+    }
 
     vkDestroyShaderModule(p_device, vertex_shader_module, nullptr);
     vkDestroyShaderModule(p_device, fragment_shader_module, nullptr);
+}
+
+auto create_render_pass(VkFormat p_format, VkDevice p_device) -> VkRenderPass
+{
+    const auto color_attachment = VkAttachmentDescription{
+        .format = p_format,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+    };
+    
+    const auto color_attachment_reference = VkAttachmentReference{
+        .attachment = 0,
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    };
+    
+    const auto subpass = VkSubpassDescription{
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &color_attachment_reference
+    };
+    
+    const auto create_info = VkRenderPassCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .attachmentCount = 1,
+        .pAttachments = &color_attachment,
+        .subpassCount = 1,
+        .pSubpasses = &subpass
+    };
+    
+    auto render_pass = static_cast<VkRenderPass>(VK_NULL_HANDLE);
+    const auto result = vkCreateRenderPass(p_device, &create_info, nullptr, &render_pass);
+    if (result != VK_SUCCESS)
+    {
+        fmt::print("[FATAL ERROR]: Failed to create the render pass. Vulkan error {}\n", result);
+        std::exit(EXIT_FAILURE);
+    }
+    
+    return render_pass;
 }
 
 // The actual main function
@@ -842,6 +933,8 @@ int real_main()
 
     const auto swap_chain_image_views =
         create_image_views(device, swap_chain_images, swap_chain_format);
+    
+    const auto render_pass = create_render_pass(swap_chain_format, device);
 
     glfwShowWindow(window);
 
@@ -849,6 +942,8 @@ int real_main()
     {
         glfwPollEvents();
     }
+    
+    vkDestroyRenderPass(device, render_pass, nullptr);
 
     for (const auto& image_view : swap_chain_image_views)
     {
