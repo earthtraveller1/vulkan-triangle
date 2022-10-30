@@ -667,7 +667,9 @@ auto create_shader_module(VkDevice p_device, const std::vector<char>& p_code)
     return shader_module;
 }
 
-auto create_graphics_pipeline(VkDevice p_device, VkExtent2D p_swap_chain_extent)
+auto create_graphics_pipeline(VkDevice p_device, VkExtent2D p_swap_chain_extent,
+                              VkRenderPass p_render_pass)
+    -> std::tuple<VkPipeline, VkPipelineLayout>
 {
     const auto vertex_shader_code = load_binary_file("shaders/shader.vert.spv");
     const auto fragment_shader_code =
@@ -827,8 +829,42 @@ auto create_graphics_pipeline(VkDevice p_device, VkExtent2D p_swap_chain_extent)
         std::exit(EXIT_FAILURE);
     }
 
+    const auto create_info = VkGraphicsPipelineCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .stageCount = static_cast<uint32_t>(shader_stages.size()),
+        .pStages = shader_stages.data(),
+        .pVertexInputState = &vertex_input,
+        .pInputAssemblyState = &input_assembly,
+        .pTessellationState = nullptr,
+        .pViewportState = &viewport_state,
+        .pRasterizationState = &rasterization,
+        .pMultisampleState = &multisampling,
+        .pDepthStencilState = nullptr,
+        .pColorBlendState = &color_blending,
+        .pDynamicState = &dynamic_state,
+        .layout = pipeline_layout,
+        .renderPass = p_render_pass,
+        .subpass = 0,
+        .basePipelineHandle = VK_NULL_HANDLE,
+        .basePipelineIndex = 0};
+
+    auto pipeline = static_cast<VkPipeline>(VK_NULL_HANDLE);
+    const auto result = vkCreateGraphicsPipelines(
+        p_device, VK_NULL_HANDLE, 1, &create_info, nullptr, &pipeline);
+    if (result != VK_SUCCESS)
+    {
+        fmt::print("[FATAL ERROR]: Failed to create the graphics pipeline. "
+                   "Vulkan error {}.\n",
+                   result);
+        std::exit(EXIT_FAILURE);
+    }
+
     vkDestroyShaderModule(p_device, vertex_shader_module, nullptr);
     vkDestroyShaderModule(p_device, fragment_shader_module, nullptr);
+
+    return {pipeline, pipeline_layout};
 }
 
 auto create_render_pass(VkFormat p_format, VkDevice p_device) -> VkRenderPass
