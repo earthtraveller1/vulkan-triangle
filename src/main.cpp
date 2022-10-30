@@ -963,6 +963,8 @@ int real_main()
         create_image_views(device, swap_chain_images, swap_chain_format);
 
     const auto render_pass = create_render_pass(swap_chain_format, device);
+    
+    const auto [graphics_pipeline, pipeline_layout] = create_graphics_pipeline(device, swap_chain_extent, render_pass);
 
     glfwShowWindow(window);
 
@@ -970,7 +972,9 @@ int real_main()
     {
         glfwPollEvents();
     }
-
+    
+    vkDestroyPipeline(device, graphics_pipeline, nullptr);
+    vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
     vkDestroyRenderPass(device, render_pass, nullptr);
 
     for (const auto& image_view : swap_chain_image_views)
