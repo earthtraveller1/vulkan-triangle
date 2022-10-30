@@ -59,12 +59,18 @@ VkBool32 debug_messenger_callback(
     VkDebugUtilsMessageTypeFlagsEXT,
     const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data, void*)
 {
+    auto color = fmt::fg(fmt::color::yellow);
+    if (p_severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+    {
+        color = fmt::fg(fmt::color::red);
+    }
+
+    fmt::print(color, "[VULKAN]: {}\n", p_callback_data->pMessage);
+
     if (p_severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
     {
         do_nothing();
     }
-
-    fmt::print("[VULKAN]: {}\n", p_callback_data->pMessage);
 
     return VK_FALSE;
 }
@@ -74,9 +80,9 @@ constexpr VkDebugUtilsMessengerCreateInfoEXT DEBUG_MESSENGER_CREATE_INFO{
     .pNext = nullptr,
     .flags = 0,
     .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
-                       VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                       VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
-                       VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
+                       VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT,
+    //    VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+    //    VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT,
     .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
                    VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
                    VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
@@ -963,8 +969,9 @@ int real_main()
         create_image_views(device, swap_chain_images, swap_chain_format);
 
     const auto render_pass = create_render_pass(swap_chain_format, device);
-    
-    const auto [graphics_pipeline, pipeline_layout] = create_graphics_pipeline(device, swap_chain_extent, render_pass);
+
+    const auto [graphics_pipeline, pipeline_layout] =
+        create_graphics_pipeline(device, swap_chain_extent, render_pass);
 
     glfwShowWindow(window);
 
@@ -972,7 +979,7 @@ int real_main()
     {
         glfwPollEvents();
     }
-    
+
     vkDestroyPipeline(device, graphics_pipeline, nullptr);
     vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
     vkDestroyRenderPass(device, render_pass, nullptr);

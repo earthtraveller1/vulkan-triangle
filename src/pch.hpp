@@ -3,8 +3,10 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <fmt/color.h>
 #include <fmt/format.h>
 #include <glm/glm.hpp>
+
 
 #ifdef _WIN32
 #include <Windows.h>
