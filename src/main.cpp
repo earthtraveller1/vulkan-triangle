@@ -950,6 +950,47 @@ auto create_framebuffers(VkDevice p_device, VkRenderPass p_render_pass,
     return framebuffers;
 }
 
+auto create_command_pool(VkDevice p_device, std::uint32_t p_graphics_queue_family) -> VkCommandPool
+{
+	const auto create_info = VkCommandPoolCreateInfo{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.queueFamilyIndex = p_graphics_queue_family
+	};
+
+	auto command_pool = (VkCommandPool)VK_NULL_HANDLE;
+	const auto result = vkCreateCommandPool(p_device, &create_info, nullptr, &command_pool);
+	if (result != VK_SUCCESS)
+	{
+		fmt::print(stderr, "[FATAL ERROR]: Failed to create a command pool. Vulkan error {}.\n", result);
+		std::exit(EXIT_SUCCESS);
+	}
+
+	return command_pool;
+}
+
+auto create_command_buffer(VkDevice p_device, VkCommandPool p_pool) -> VkCommandBuffer
+{
+	const auto allocate_info = VkCommandBufferAllocateInfo{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		.pNext = nullptr,
+		.commandPool = p_pool,
+		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		.commandBufferCount = 1
+	};
+
+	auto command_buffer = (VkCommandBuffer)VK_NULL_HANDLE;
+	const auto result = vkAllocateCommandBuffers(p_device, &allocate_info, &command_buffer);
+	if (result != VK_SUCCESS)
+	{
+		fmt::print(stderr, "[FATAL ERROR]: Failed to allocate a command buffer. Vulkan error {}.\n", result);
+		std::exit(EXIT_SUCCESS);
+	}
+
+	return command_buffer;
+}
+
 // The actual main function
 int real_main()
 {
@@ -1010,12 +1051,18 @@ int real_main()
     const auto swap_chain_framebuffers = create_framebuffers(
         device, render_pass, swap_chain_image_views, swap_chain_extent);
 
+    const auto command_pool = create_command_pool(device, graphics_queue_family);
+
+    const auto command_buffer = create_command_buffer(device, command_pool);
+
     glfwShowWindow(window);
 
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
     }
+
+    vkDestroyCommandPool(device, command_pool, nullptr);
 
     for (const auto framebuffer : swap_chain_framebuffers)
     {
