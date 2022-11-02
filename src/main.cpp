@@ -916,6 +916,40 @@ auto create_render_pass(VkFormat p_format, VkDevice p_device) -> VkRenderPass
     return render_pass;
 }
 
+auto create_framebuffers(VkDevice p_device, VkRenderPass p_render_pass,
+                         const std::vector<VkImageView>& p_image_views,
+                         const VkExtent2D& p_extent)
+    -> std::vector<VkFramebuffer>
+{
+    auto framebuffers = std::vector<VkFramebuffer>(p_image_views.size());
+
+    for (size_t i = 0; i < framebuffers.size(); i++)
+    {
+        const auto create_info = VkFramebufferCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .renderPass = p_render_pass,
+            .attachmentCount = 1,
+            .pAttachments = &p_image_views[i],
+            .width = p_extent.width,
+            .height = p_extent.height,
+            .layers = 1};
+
+        const auto result = vkCreateFramebuffer(p_device, &create_info, nullptr,
+                                                &framebuffers[i]);
+        if (result != VK_SUCCESS)
+        {
+            fmt::print("[FATAL ERROR]: Failed to create framebuffer {}. Vulkan "
+                       "error {}\n",
+                       i, result);
+            std::exit(EXIT_FAILURE);
+        }
+    }
+
+    return framebuffers;
+}
+
 // The actual main function
 int real_main()
 {
@@ -973,11 +1007,19 @@ int real_main()
     const auto [graphics_pipeline, pipeline_layout] =
         create_graphics_pipeline(device, swap_chain_extent, render_pass);
 
+    const auto swap_chain_framebuffers = create_framebuffers(
+        device, render_pass, swap_chain_image_views, swap_chain_extent);
+
     glfwShowWindow(window);
 
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
+    }
+
+    for (const auto framebuffer : swap_chain_framebuffers)
+    {
+        vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
 
     vkDestroyPipeline(device, graphics_pipeline, nullptr);
