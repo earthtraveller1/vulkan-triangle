@@ -1146,6 +1146,44 @@ auto record_command_buffer(VkCommandBuffer p_command_buffer,
     }
 }
 
+// Return values
+// 2 semaphores
+// 1 fence
+auto create_sync_objects(VkDevice p_device)
+    -> std::tuple<VkSemaphore, VkSemaphore, VkFence>
+{
+    const auto semaphore_create_info =
+        VkSemaphoreCreateInfo{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+
+    const auto fence_create_info =
+        VkFenceCreateInfo{.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+                          .flags = VK_FENCE_CREATE_SIGNALED_BIT};
+
+    auto semaphore1 = (VkSemaphore)VK_NULL_HANDLE,
+         semaphore2 = (VkSemaphore)VK_NULL_HANDLE;
+    auto fence = (VkFence)VK_NULL_HANDLE;
+
+    const auto results = std::array<VkResult, 3>{
+        vkCreateSemaphore(p_device, &semaphore_create_info, nullptr,
+                          &semaphore1),
+        vkCreateSemaphore(p_device, &semaphore_create_info, nullptr,
+                          &semaphore2),
+        vkCreateFence(p_device, &fence_create_info, nullptr, &fence)};
+
+    for (const auto& result : results)
+    {
+        if (result != VK_SUCCESS)
+        {
+            print_error("[FATAL ERROR]: Failed to create synchronization "
+                        "objects for Vulkan. Vulkan error {}",
+                        result);
+            std::exit(EXIT_FAILURE);
+        }
+    }
+
+    return {semaphore1, semaphore2, fence};
+}
+
 // The actual main function
 int real_main()
 {
@@ -1220,6 +1258,9 @@ int real_main()
         physical_device, device, vertices.size() * sizeof(vertex_t),
         vertices.data());
 
+    const auto [image_available_semaphore, render_finished_semaphore,
+                in_flight_fence] = create_sync_objects(device);
+
     glfwShowWindow(window);
 
     while (!glfwWindowShouldClose(window))
@@ -1227,6 +1268,9 @@ int real_main()
         glfwPollEvents();
     }
 
+    vkDestroySemaphore(device, image_available_semaphore, nullptr);
+    vkDestroySemaphore(device, render_finished_semaphore, nullptr);
+    vkDestroyFence(device, in_flight_fence, nullptr);
     vkFreeMemory(device, vertex_buffer_memory, nullptr);
     vkDestroyBuffer(device, vertex_buffer, nullptr);
     vkDestroyCommandPool(device, command_pool, nullptr);
