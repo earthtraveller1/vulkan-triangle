@@ -54,6 +54,11 @@ struct vertex_t
 
 auto do_nothing() {}
 
+inline auto print_error(std::string_view p_msg, VkResult p_err)
+{
+    fmt::print(stderr, fmt::fg(fmt::color::red), p_msg, p_err);
+}
+
 VkBool32 debug_messenger_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT p_severity,
     VkDebugUtilsMessageTypeFlagsEXT,
@@ -1073,6 +1078,72 @@ auto create_vertex_buffer(VkPhysicalDevice p_physical_device, VkDevice p_device,
     vkUnmapMemory(p_device, memory);
 
     return {buffer, memory};
+}
+
+auto record_command_buffer(VkCommandBuffer p_command_buffer,
+                           VkRenderPass p_render_pass,
+                           VkFramebuffer p_framebuffer,
+                           const VkExtent2D& p_swap_chain_extent,
+                           VkPipeline p_graphics_pipeline)
+{
+    const auto begin_info = VkCommandBufferBeginInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .pInheritanceInfo = nullptr};
+
+    const auto result = vkBeginCommandBuffer(p_command_buffer, &begin_info);
+    if (result != VK_SUCCESS)
+    {
+        print_error("[FATAL ERROR]: Failed to begin recording the command "
+                    "buffer. Vulkan error {}.\n",
+                    result);
+        std::exit(EXIT_FAILURE);
+    }
+
+    const auto clear_color = VkClearValue{{{0.0f, 0.0f, 0.0f, 1.0f}}};
+
+    const auto render_pass_begin_info = VkRenderPassBeginInfo{
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .pNext = nullptr,
+        .renderPass = p_render_pass,
+        .framebuffer = p_framebuffer,
+        .renderArea = VkRect2D{.offset = VkOffset2D{.x = 0, .y = 0},
+                               .extent = p_swap_chain_extent},
+        .clearValueCount = 1,
+        .pClearValues = &clear_color};
+
+    vkCmdBeginRenderPass(p_command_buffer, &render_pass_begin_info,
+                         VK_SUBPASS_CONTENTS_INLINE);
+
+    vkCmdBindPipeline(p_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                      p_graphics_pipeline);
+
+    const auto viewport =
+        VkViewport{.x = 0.0f,
+                   .y = 0.0f,
+                   .width = static_cast<float>(p_swap_chain_extent.width),
+                   .height = static_cast<float>(p_swap_chain_extent.height),
+                   .minDepth = 0.0f,
+                   .maxDepth = 1.0f};
+    vkCmdSetViewport(p_command_buffer, 0, 1, &viewport);
+
+    const auto scissor = VkRect2D{.offset = VkOffset2D{.x = 0, .y = 0},
+                                  .extent = p_swap_chain_extent};
+    vkCmdSetScissor(p_command_buffer, 0, 1, &scissor);
+
+    vkCmdDraw(p_command_buffer, 3, 1, 0, 0);
+
+    vkCmdEndRenderPass(p_command_buffer);
+
+    const auto end_result = vkEndCommandBuffer(p_command_buffer);
+    if (end_result != VK_SUCCESS)
+    {
+        print_error("[FATAL ERROR]: Failed to stop recording the command "
+                    "buffer. Vulkan error {}.\n",
+                    result);
+        std::exit(EXIT_FAILURE);
+    }
 }
 
 // The actual main function
