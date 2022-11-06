@@ -1052,7 +1052,7 @@ auto create_vertex_buffer(VkPhysicalDevice p_physical_device, VkDevice p_device,
                              .memoryTypeIndex = memory_type};
 
     auto memory = (VkDeviceMemory)VK_NULL_HANDLE;
-    const auto result =
+    const auto result2 =
         vkAllocateMemory(p_device, &allocate_info, nullptr, &memory);
 
     if (result != VK_SUCCESS)
@@ -1060,7 +1060,7 @@ auto create_vertex_buffer(VkPhysicalDevice p_physical_device, VkDevice p_device,
         fmt::print(stderr, fmt::fg(fmt::color::red),
                    "[FATAL ERROR]: Failed to allocate some GPU memory. Vulkan "
                    "error {}.\n",
-                   result);
+                   result2);
         std::exit(EXIT_FAILURE);
     }
 
