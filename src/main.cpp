@@ -5,6 +5,8 @@
 namespace
 {
 
+template <typename T, size_t S> using raw_array = T[S];
+
 constexpr uint16_t WINDOW_WIDTH = 1024;
 constexpr uint16_t WINDOW_HEIGHT = 768;
 
@@ -898,6 +900,14 @@ auto create_render_pass(VkFormat p_format, VkDevice p_device) -> VkRenderPass
         .colorAttachmentCount = 1,
         .pColorAttachments = &color_attachment_reference};
 
+    const auto dependency = VkSubpassDependency{
+        .srcSubpass = VK_SUBPASS_EXTERNAL,
+        .dstSubpass = 0,
+        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT};
+
     const auto create_info = VkRenderPassCreateInfo{
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
         .pNext = nullptr,
@@ -905,7 +915,9 @@ auto create_render_pass(VkFormat p_format, VkDevice p_device) -> VkRenderPass
         .attachmentCount = 1,
         .pAttachments = &color_attachment,
         .subpassCount = 1,
-        .pSubpasses = &subpass};
+        .pSubpasses = &subpass,
+        .dependencyCount = 1,
+        .pDependencies = &dependency};
 
     auto render_pass = static_cast<VkRenderPass>(VK_NULL_HANDLE);
     const auto result =
@@ -961,7 +973,7 @@ auto create_command_pool(VkDevice p_device,
     const auto create_info = VkCommandPoolCreateInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .pNext = nullptr,
-        .flags = 0,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
         .queueFamilyIndex = p_graphics_queue_family};
 
     auto command_pool = (VkCommandPool)VK_NULL_HANDLE;
@@ -1084,7 +1096,8 @@ auto record_command_buffer(VkCommandBuffer p_command_buffer,
                            VkRenderPass p_render_pass,
                            VkFramebuffer p_framebuffer,
                            const VkExtent2D& p_swap_chain_extent,
-                           VkPipeline p_graphics_pipeline)
+                           VkPipeline p_graphics_pipeline,
+                           VkBuffer p_vertex_buffer)
 {
     const auto begin_info = VkCommandBufferBeginInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -1118,6 +1131,9 @@ auto record_command_buffer(VkCommandBuffer p_command_buffer,
 
     vkCmdBindPipeline(p_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                       p_graphics_pipeline);
+
+    const auto offset = (VkDeviceSize)0;
+    vkCmdBindVertexBuffers(p_command_buffer, 0, 1, &p_vertex_buffer, &offset);
 
     const auto viewport =
         VkViewport{.x = 0.0f,
@@ -1251,8 +1267,8 @@ int real_main()
 
     const auto vertices = std::array<vertex_t, 3>{
         vertex_t{glm::vec2{0.0f, -0.5f}, glm::vec3{1.0f, 0.0f, 0.0f}},
-        vertex_t{glm::vec2{0.5f, 0.5f}, glm::vec3{1.0f, 0.0f, 0.0f}},
-        vertex_t{glm::vec2{-0.5f, 0.5f}, glm::vec3{1.0f, 0.0f, 0.0f}}};
+        vertex_t{glm::vec2{0.5f, 0.5f}, glm::vec3{0.0f, 1.0f, 0.0f}},
+        vertex_t{glm::vec2{-0.5f, 0.5f}, glm::vec3{0.0f, 0.0f, 1.0f}}};
 
     const auto [vertex_buffer, vertex_buffer_memory] = create_vertex_buffer(
         physical_device, device, vertices.size() * sizeof(vertex_t),
@@ -1265,8 +1281,59 @@ int real_main()
 
     while (!glfwWindowShouldClose(window))
     {
+        vkWaitForFences(device, 1, &in_flight_fence, VK_TRUE, UINT64_MAX);
+        vkResetFences(device, 1, &in_flight_fence);
+
+        auto image_index = (uint32_t)0;
+        vkAcquireNextImageKHR(device, swap_chain, UINT64_MAX,
+                              image_available_semaphore, VK_NULL_HANDLE,
+                              &image_index);
+
+        vkResetCommandBuffer(command_buffer, 0);
+        record_command_buffer(
+            command_buffer, render_pass, swap_chain_framebuffers[image_index],
+            swap_chain_extent, graphics_pipeline, vertex_buffer);
+
+        const auto wait_stages = raw_array<VkPipelineStageFlags, 1>{
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+
+        const auto submit_info =
+            VkSubmitInfo{.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+                         .waitSemaphoreCount = 1,
+                         .pWaitSemaphores = &image_available_semaphore,
+                         .pWaitDstStageMask = wait_stages,
+                         .commandBufferCount = 1,
+                         .pCommandBuffers = &command_buffer,
+                         .signalSemaphoreCount = 1,
+                         .pSignalSemaphores = &render_finished_semaphore};
+
+        const auto submit_result =
+            vkQueueSubmit(graphics_queue, 1, &submit_info, in_flight_fence);
+
+        const auto present_info =
+            VkPresentInfoKHR{.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+                             .pNext = nullptr,
+                             .waitSemaphoreCount = 1,
+                             .pWaitSemaphores = &render_finished_semaphore,
+                             .swapchainCount = 1,
+                             .pSwapchains = &swap_chain,
+                             .pImageIndices = &image_index,
+                             .pResults = nullptr};
+
+        vkQueuePresentKHR(present_queue, &present_info);
+
+        if (submit_result != VK_SUCCESS)
+        {
+            print_error("[FATAL ERROR]: Failed to submit the command buffer. "
+                        "Vulkan error {}\n",
+                        submit_result);
+            std::exit(EXIT_FAILURE);
+        }
+
         glfwPollEvents();
     }
+
+    vkDeviceWaitIdle(device);
 
     vkDestroySemaphore(device, image_available_semaphore, nullptr);
     vkDestroySemaphore(device, render_finished_semaphore, nullptr);
