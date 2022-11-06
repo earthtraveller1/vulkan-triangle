@@ -1149,6 +1149,7 @@ int real_main()
         glfwPollEvents();
     }
 
+    vkFreeMemory(device, vertex_buffer_memory, nullptr);
     vkDestroyBuffer(device, vertex_buffer, nullptr);
     vkDestroyCommandPool(device, command_pool, nullptr);
 
