@@ -1003,7 +1003,8 @@ auto create_command_buffer(VkDevice p_device, VkCommandPool p_pool)
 // - buffer
 // - the buffer's memory
 auto create_vertex_buffer(VkPhysicalDevice p_physical_device, VkDevice p_device,
-                          size_t p_size) -> std::tuple<VkBuffer, VkDeviceMemory>
+                          size_t p_size, const vertex_t* p_vertices)
+    -> std::tuple<VkBuffer, VkDeviceMemory>
 {
     const auto create_info =
         VkBufferCreateInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -1065,6 +1066,11 @@ auto create_vertex_buffer(VkPhysicalDevice p_physical_device, VkDevice p_device,
     }
 
     vkBindBufferMemory(p_device, buffer, memory, 0);
+
+    auto data = (void*)nullptr;
+    vkMapMemory(p_device, memory, 0, p_size, 0, &data);
+    std::memcpy(data, p_vertices, p_size);
+    vkUnmapMemory(p_device, memory);
 
     return {buffer, memory};
 }
@@ -1140,7 +1146,8 @@ int real_main()
         vertex_t{glm::vec2{-0.5f, 0.5f}, glm::vec3{1.0f, 0.0f, 0.0f}}};
 
     const auto [vertex_buffer, vertex_buffer_memory] = create_vertex_buffer(
-        physical_device, device, vertices.size() * sizeof(vertex_t));
+        physical_device, device, vertices.size() * sizeof(vertex_t),
+        vertices.data());
 
     glfwShowWindow(window);
 
