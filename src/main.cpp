@@ -950,45 +950,123 @@ auto create_framebuffers(VkDevice p_device, VkRenderPass p_render_pass,
     return framebuffers;
 }
 
-auto create_command_pool(VkDevice p_device, std::uint32_t p_graphics_queue_family) -> VkCommandPool
+auto create_command_pool(VkDevice p_device,
+                         std::uint32_t p_graphics_queue_family) -> VkCommandPool
 {
-	const auto create_info = VkCommandPoolCreateInfo{
-		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-		.pNext = nullptr,
-		.flags = 0,
-		.queueFamilyIndex = p_graphics_queue_family
-	};
+    const auto create_info = VkCommandPoolCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .queueFamilyIndex = p_graphics_queue_family};
 
-	auto command_pool = (VkCommandPool)VK_NULL_HANDLE;
-	const auto result = vkCreateCommandPool(p_device, &create_info, nullptr, &command_pool);
-	if (result != VK_SUCCESS)
-	{
-		fmt::print(stderr, "[FATAL ERROR]: Failed to create a command pool. Vulkan error {}.\n", result);
-		std::exit(EXIT_SUCCESS);
-	}
+    auto command_pool = (VkCommandPool)VK_NULL_HANDLE;
+    const auto result =
+        vkCreateCommandPool(p_device, &create_info, nullptr, &command_pool);
+    if (result != VK_SUCCESS)
+    {
+        fmt::print(stderr,
+                   "[FATAL ERROR]: Failed to create a command pool. Vulkan "
+                   "error {}.\n",
+                   result);
+        std::exit(EXIT_SUCCESS);
+    }
 
-	return command_pool;
+    return command_pool;
 }
 
-auto create_command_buffer(VkDevice p_device, VkCommandPool p_pool) -> VkCommandBuffer
+auto create_command_buffer(VkDevice p_device, VkCommandPool p_pool)
+    -> VkCommandBuffer
 {
-	const auto allocate_info = VkCommandBufferAllocateInfo{
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-		.pNext = nullptr,
-		.commandPool = p_pool,
-		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-		.commandBufferCount = 1
-	};
+    const auto allocate_info = VkCommandBufferAllocateInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .pNext = nullptr,
+        .commandPool = p_pool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1};
 
-	auto command_buffer = (VkCommandBuffer)VK_NULL_HANDLE;
-	const auto result = vkAllocateCommandBuffers(p_device, &allocate_info, &command_buffer);
-	if (result != VK_SUCCESS)
-	{
-		fmt::print(stderr, "[FATAL ERROR]: Failed to allocate a command buffer. Vulkan error {}.\n", result);
-		std::exit(EXIT_SUCCESS);
-	}
+    auto command_buffer = (VkCommandBuffer)VK_NULL_HANDLE;
+    const auto result =
+        vkAllocateCommandBuffers(p_device, &allocate_info, &command_buffer);
+    if (result != VK_SUCCESS)
+    {
+        fmt::print(stderr,
+                   "[FATAL ERROR]: Failed to allocate a command buffer. Vulkan "
+                   "error {}.\n",
+                   result);
+        std::exit(EXIT_SUCCESS);
+    }
 
-	return command_buffer;
+    return command_buffer;
+}
+
+// The return values for this function is
+// - buffer
+// - the buffer's memory
+auto create_vertex_buffer(VkPhysicalDevice p_physical_device, VkDevice p_device,
+                          size_t p_size) -> std::tuple<VkBuffer, VkDeviceMemory>
+{
+    const auto create_info =
+        VkBufferCreateInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                           .pNext = nullptr,
+                           .flags = 0,
+                           .size = p_size,
+                           .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                           .sharingMode = VK_SHARING_MODE_EXCLUSIVE};
+
+    auto buffer = (VkBuffer)VK_NULL_HANDLE;
+    const auto result =
+        vkCreateBuffer(p_device, &create_info, nullptr, &buffer);
+    if (result != VK_SUCCESS)
+    {
+        fmt::print(stderr, fmt::fg(fmt::color::red),
+                   "[FATAL ERROR]: Failed to create a buffer. Vulkan error {}.",
+                   result);
+        std::exit(EXIT_FAILURE);
+    }
+
+    auto memory_requirements = VkMemoryRequirements{};
+    vkGetBufferMemoryRequirements(p_device, buffer, &memory_requirements);
+
+    auto memory_properties = VkPhysicalDeviceMemoryProperties{};
+    vkGetPhysicalDeviceMemoryProperties(p_physical_device, &memory_properties);
+
+    const auto properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+    auto memory_type = (uint32_t)0;
+    for (auto i = (uint32_t)0; i < memory_properties.memoryTypeCount; i++)
+    {
+        if ((memory_requirements.memoryTypeBits & (1 << i)) &&
+            (memory_properties.memoryTypes[i].propertyFlags & properties) ==
+                properties)
+        {
+            memory_type = i;
+            break;
+        }
+    }
+
+    const auto allocate_info =
+        VkMemoryAllocateInfo{.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+                             .pNext = nullptr,
+                             .allocationSize = memory_requirements.size,
+                             .memoryTypeIndex = memory_type};
+
+    auto memory = (VkDeviceMemory)VK_NULL_HANDLE;
+    const auto result =
+        vkAllocateMemory(p_device, &allocate_info, nullptr, &memory);
+
+    if (result != VK_SUCCESS)
+    {
+        fmt::print(stderr, fmt::fg(fmt::color::red),
+                   "[FATAL ERROR]: Failed to allocate some GPU memory. Vulkan "
+                   "error {}.\n",
+                   result);
+        std::exit(EXIT_FAILURE);
+    }
+
+    vkBindBufferMemory(p_device, buffer, memory, 0);
+
+    return {buffer, memory};
 }
 
 // The actual main function
@@ -1051,9 +1129,18 @@ int real_main()
     const auto swap_chain_framebuffers = create_framebuffers(
         device, render_pass, swap_chain_image_views, swap_chain_extent);
 
-    const auto command_pool = create_command_pool(device, graphics_queue_family);
+    const auto command_pool =
+        create_command_pool(device, graphics_queue_family);
 
     const auto command_buffer = create_command_buffer(device, command_pool);
+
+    const auto vertices = std::array<vertex_t, 3>{
+        vertex_t{glm::vec2{0.0f, -0.5f}, glm::vec3{1.0f, 0.0f, 0.0f}},
+        vertex_t{glm::vec2{0.5f, 0.5f}, glm::vec3{1.0f, 0.0f, 0.0f}},
+        vertex_t{glm::vec2{-0.5f, 0.5f}, glm::vec3{1.0f, 0.0f, 0.0f}}};
+
+    const auto [vertex_buffer, vertex_buffer_memory] = create_vertex_buffer(
+        physical_device, device, vertices.size() * sizeof(vertex_t));
 
     glfwShowWindow(window);
 
@@ -1062,6 +1149,7 @@ int real_main()
         glfwPollEvents();
     }
 
+    vkDestroyBuffer(device, vertex_buffer, nullptr);
     vkDestroyCommandPool(device, command_pool, nullptr);
 
     for (const auto framebuffer : swap_chain_framebuffers)
